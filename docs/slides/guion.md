@@ -60,7 +60,7 @@ Esta figura resume todo. A la izquierda el corredor, a la derecha el cruce; las 
 
 ## 15. Demo en vivo
 
-Ahora la demo. Son dos simulaciones de SUMO corriendo en paralelo con la misma demanda y la misma semilla: a la izquierda el semáforo de tiempo fijo y a la derecha MAPPO, el modelo entrenado real. Vamos a: uno, arrancar en hora pico y acelerar para ver cómo se separan las curvas; dos, inyectar carros en la entrada sur y en la 12 calle; tres, cerrar dos carriles entre la 12 y la 10a calle y ver cómo crece la cola. Una aclaración: la tarjeta «Mejora» usa la espera promedio en vivo, que no es la demora total de la evaluación; los números oficiales son los que ya mostramos. Si algo falla, tenemos el video de respaldo de tres minutos y medio.
+Ahora la demo. Son dos simulaciones de SUMO corriendo en paralelo con la misma demanda y la misma semilla: arriba el semáforo de tiempo fijo y abajo MAPPO, el modelo entrenado real. Vamos a: uno, arrancar en hora pico y acelerar para ver cómo se separan las curvas; dos, inyectar carros en la entrada sur y en la 12 calle; tres, cerrar dos carriles entre la 12 y la 10a calle y ver cómo crece la cola. Una aclaración: la tarjeta «Mejora» usa la espera promedio en vivo, que no es la demora total de la evaluación; los números oficiales son los que ya mostramos. Si algo falla, tenemos el video de respaldo de unos cuatro minutos.
 
 ## 16. Ética y limitaciones
 
