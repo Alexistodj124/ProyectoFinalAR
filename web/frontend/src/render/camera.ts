@@ -55,12 +55,14 @@ export function chooseRotation(net: Network, w: number, h: number): number {
   const { angle, elong } = principalAxis(net);
   if (elong < 1.3) return 0;
   let r: number;
+  // Si el eje va casi de este a oeste, el norte no puede quedar a la derecha (ancho) ni arriba (alto):
+  // se desempata con el este a la derecha (ancho) o arriba (alto), sin depender del signo del ruido.
   if (w >= h) {
     r = -angle; // eje -> +x
-    if (-Math.sin(r) < 0) r += Math.PI; // el norte (0,1) rotado debe apuntar a la derecha
+    if (Math.abs(Math.sin(r)) < 0.3 ? Math.cos(r) < 0 : -Math.sin(r) < 0) r += Math.PI; // norte (0,1) a la derecha
   } else {
     r = Math.PI / 2 - angle; // eje -> +y
-    if (Math.cos(r) < 0) r += Math.PI; // el norte debe apuntar hacia arriba
+    if (Math.abs(Math.cos(r)) < 0.3 ? Math.sin(r) < 0 : Math.cos(r) < 0) r += Math.PI; // norte hacia arriba
   }
   r = Math.atan2(Math.sin(r), Math.cos(r));
   return Math.abs(r) < (2 * Math.PI) / 180 ? 0 : r;
@@ -155,4 +157,70 @@ export function viewFor(net: Network, w: number, h: number, rot: number, x: numb
 export function zoomForSpan(net: Network, w: number, h: number, rot: number, meters: number): number {
   const base = makeCamera(net, w, h, { k: 1, dx: 0, dy: 0 }, rot).s;
   return Math.min(w, h) / Math.max(1, meters) / base;
+}
+
+// ---------------------------------------------------------------- vista animada (App)
+
+// Vista que encuadra toda la red con un margen de `pad` px (mas ajustada que k = 1, que deja PAD).
+export function fitView(net: Network, w: number, h: number, rot: number, pad = 8): View {
+  const cam = makeCamera(net, w, h, { k: 1, dx: 0, dy: 0 }, rot);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [x, y] of points(net)) {
+    const [sx, sy] = toScreen(cam, x, y);
+    x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+  }
+  const k = Math.max(0.5, Math.min((w - 2 * pad) / Math.max(1, x1 - x0), (h - 2 * pad) / Math.max(1, y1 - y0)));
+  const [wx, wy] = toWorld(cam, (x0 + x1) / 2, (y0 + y1) / 2);
+  return viewFor(net, w, h, rot, wx, wy, k);
+}
+
+// Corre la vista v para que el final de la red no quede a media pantalla en un eje que la red cubre
+// entera (al acercar a un cruce del extremo, el final de Reforma queda en el borde del lienzo).
+export function clampView(net: Network, w: number, h: number, rot: number, v: View): View {
+  const cam = makeCamera(net, w, h, v, rot);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [x, y] of points(net)) {
+    const [sx, sy] = toScreen(cam, x, y);
+    x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+  }
+  let { dx, dy } = v;
+  if (x1 - x0 >= w) { if (x0 > 0) dx -= x0; else if (x1 < w) dx += w - x1; }
+  if (y1 - y0 >= h) { if (y0 > 0) dy -= y0; else if (y1 < h) dy += h - y1; }
+  return { k: v.k, dx, dy };
+}
+
+// Punto del mundo que queda en el centro del lienzo con la vista v.
+export function viewCenter(net: Network, w: number, h: number, rot: number, v: View): [number, number] {
+  return toWorld(makeCamera(net, w, h, v, rot), w / 2, h / 2);
+}
+
+export function easeInOutCubic(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+// Vista intermedia entre a y b (e en [0, 1], ya suavizado). Zoom geometrico y centro lineal en el
+// mundo; si el salto es largo (mas de medio lienzo al zoom menor) se aleja a mitad de camino, como
+// un mapa. Con `anchor` (px del lienzo) el punto bajo el ancla queda fijo, como el zoom de la rueda.
+export function lerpView(net: Network, w: number, h: number, rot: number, a: View, b: View, e: number,
+  anchor?: [number, number]): View {
+  if (e <= 0) return a;
+  if (e >= 1) return b;
+  let k = a.k * Math.pow(b.k / a.k, e);
+  if (anchor) {
+    const r = k / a.k, cx = w / 2, cy = h / 2;
+    return { k, dx: anchor[0] - cx - (anchor[0] - cx - a.dx) * r, dy: anchor[1] - cy - (anchor[1] - cy - a.dy) * r };
+  }
+  const c0 = viewCenter(net, w, h, rot, a), c1 = viewCenter(net, w, h, rot, b);
+  const base = makeCamera(net, w, h, { k: 1, dx: 0, dy: 0 }, rot).s;
+  const hop = (Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) * base * Math.min(a.k, b.k)) / (0.5 * Math.max(w, h));
+  if (hop > 1) k /= 1 + (hop - 1) * 0.5 * Math.sin(Math.PI * e);
+  return viewFor(net, w, h, rot, c0[0] + (c1[0] - c0[0]) * e, c0[1] + (c1[1] - c0[1]) * e, k);
+}
+
+// Duracion sugerida (ms) de la animacion de a a b: los saltos largos tardan un poco mas.
+export function flyMs(net: Network, w: number, h: number, rot: number, a: View, b: View, ms = 700): number {
+  const c0 = viewCenter(net, w, h, rot, a), c1 = viewCenter(net, w, h, rot, b);
+  const base = makeCamera(net, w, h, { k: 1, dx: 0, dy: 0 }, rot).s;
+  const hop = (Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) * base * Math.min(a.k, b.k)) / (0.5 * Math.max(w, h));
+  return hop > 1 ? ms * Math.min(1.6, 1 + 0.15 * hop) : ms;
 }

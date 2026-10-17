@@ -4,9 +4,12 @@
 Abre Google Chrome headless, lo controla con el Chrome DevTools Protocol (paquete `websockets`
 del venv) y graba la pagina real con `Page.startScreencast`. Durante cada clip maneja la UI
 de verdad: clics del mouse (Input.dispatchMouseEvent) en los botones, en el deslizador y en
-los carriles del mapa (modos Inyectar / Incidente) y la rueda del mouse para hacer zoom. Un
-puntero dibujado encima de la pagina muestra donde se hace cada clic (headless no pinta el
-cursor del sistema). Cada clip se convierte a MP4 H.264 a 30 fps constantes con ffmpeg.
+los carriles del mapa (modos Inyectar / Incidente), la rueda del mouse para hacer zoom y los
+botones de Vista / tarjetas de los semaforos para acercarse a un cruce. Las posiciones en el
+mapa salen de la propia pagina (window.__maps[...].worldToPage y window.__view), asi que no
+dependen de replicar la camara. Un puntero dibujado encima de la pagina muestra donde se hace
+cada clic (headless no pinta el cursor del sistema). Cada clip se convierte a MP4 H.264 a 30 fps
+constantes con ffmpeg.
 
 Uso (el backend debe estar corriendo, ver web/README.md):
 
@@ -236,7 +239,6 @@ class Recorder:
 class Demo:
     def __init__(self, cdp: CDP, url: str):
         self.cdp, self.url = cdp, url.rstrip("/")
-        self.view = {"k": 1.0, "dx": 0.0, "dy": 0.0}  # replica del zoom/pan compartido de NetCanvas
         self.net = None
         self.cursor = (W / 2, H * 0.55)
 
@@ -248,7 +250,7 @@ class Demo:
         await self.cdp.send("Page.navigate", url=self.url)
         await self.wait_live()
         await self.cdp.js(OVERLAY_JS)
-        self.view = {"k": 1.0, "dx": 0.0, "dy": 0.0}
+        await self.wait_view()
 
     async def wait_live(self, timeout: float = 40):
         t0 = time.time()
@@ -360,8 +362,8 @@ class Demo:
         await self.wait_reset(scenario, policy)
         if cur != scenario:
             self.net = None
-            self.view = {"k": 1.0, "dx": 0.0, "dy": 0.0}
-            await asyncio.sleep(1.0)  # la pagina pide la red nueva
+            await asyncio.sleep(1.0)  # la pagina pide la red nueva (vista "Todo"; en un cruce aislado, el cruce)
+            await self.wait_view()
         if warm_to:
             await self.speed("20×")
             await self.wait_sim(warm_to)
@@ -387,17 +389,33 @@ class Demo:
     async def canvas_rect(self, which: int = 1):
         return await self.rect(f"document.querySelectorAll('.pane canvas')[{which}]")
 
+    async def view(self) -> dict:
+        """Vista compartida real de la pagina: {k, dx, dy, w, h, focus, animating} (window.__view)."""
+        v = await self.cdp.js("window.__view ? window.__view() : null")
+        if not v:
+            raise RuntimeError("la pagina no expone window.__view (frontend viejo?)")
+        return v
+
+    async def wait_view(self, timeout: float = 4.0):
+        """Espera a que termine la animacion de la vista (Vista, tarjeta, doble clic)."""
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            try:
+                v = await self.cdp.js("window.__view ? window.__view() : null")
+                if v and not v.get("animating"):
+                    return v
+            except RuntimeError:
+                pass
+            await asyncio.sleep(0.1)
+        return None
+
     async def world_to_screen(self, x: float, y: float, which: int = 1) -> tuple[float, float]:
-        """Misma transformacion que NetCanvas (PAD = 24, eje y invertido, zoom/pan compartido)."""
-        net = await self.network()
-        minx, miny, maxx, maxy = net["bbox"]
-        cx, cy, cw, ch = await self.canvas_rect(which)
-        pad = 24
-        base = min((cw - 2 * pad) / max(1, maxx - minx), (ch - 2 * pad) / max(1, maxy - miny))
-        s = base * self.view["k"]
-        ox = (cw - (maxx - minx) * s) / 2 + self.view["dx"] - minx * s
-        oy = (ch + (maxy - miny) * s) / 2 + self.view["dy"] + miny * s
-        return cx + ox + x * s, cy + oy - y * s
+        """Punto del mundo SUMO -> pixel de la pagina, con la camara real del lienzo (0 = fijo, 1 = RL)."""
+        key = "fijo" if which == 0 else "rl"
+        r = await self.cdp.js(f"window.__maps && window.__maps.{key} ? window.__maps.{key}.worldToPage({x}, {y}) : null")
+        if not r:
+            raise RuntimeError("la pagina no expone window.__maps")
+        return float(r[0]), float(r[1])
 
     async def lane_point(self, edge: str, frac: float = 0.5) -> tuple[float, float]:
         """Punto (mundo) a una fraccion de la longitud del carril central del borde."""
@@ -421,17 +439,11 @@ class Demo:
         await self.click_xy(sx, sy)
 
     async def zoom_at(self, wx: float, wy: float, steps: int, which: int = 1, delay: float = 0.07):
-        """Rueda del mouse sobre el punto del mundo (wx, wy): cada paso multiplica el zoom por 1.12."""
+        """Rueda del mouse sobre el punto del mundo (wx, wy): cada paso multiplica el zoom por 1.12 (max 24)."""
+        await self.wait_view()
         sx, sy = await self.world_to_screen(wx, wy, which)
         await self.move(sx, sy, 0.6)
-        cx, cy, cw, ch = await self.canvas_rect(which)
-        mx, my = sx - cx, sy - cy
         for _ in range(abs(steps)):
-            f = 1.12 if steps > 0 else 1 / 1.12
-            k = max(0.5, min(12, self.view["k"] * f))
-            r = k / self.view["k"]
-            ccx, ccy = cw / 2, ch / 2
-            self.view = {"k": k, "dx": mx - ccx - (mx - ccx - self.view["dx"]) * r, "dy": my - ccy - (my - ccy - self.view["dy"]) * r}
             await self.cdp.send("Input.dispatchMouseEvent", type="mouseWheel", x=sx, y=sy, deltaX=0, deltaY=-100 if steps > 0 else 100)
             await asyncio.sleep(delay)
         await asyncio.sleep(0.3)
@@ -448,18 +460,28 @@ class Demo:
             await self.cdp.send("Input.dispatchMouseEvent", type="mouseMoved", x=x, y=y, button="left", buttons=1)
             await asyncio.sleep(0.03)
         await self.cdp.send("Input.dispatchMouseEvent", type="mouseReleased", x=x0 + dx, y=y0 + dy, button="left", buttons=0, clickCount=1)
-        # NetCanvas suma el movimiento de cada pointermove (el primero >4 px ya cuenta)
-        self.view = {**self.view, "dx": self.view["dx"] + dx, "dy": self.view["dy"] + dy}
         self.cursor = (x0 + dx, y0 + dy)
         await asyncio.sleep(0.4)
 
+    async def focus(self, tls: str = "all", pause: float = 0.65):
+        """Clic en el boton de Vista de ese semaforo ("C12"...) o en "Todo" ("all"); espera la animacion."""
+        await self.click_el(f"document.querySelector('.controls [data-focus={json.dumps(tls)}]')", pause)
+        await asyncio.sleep(0.1)
+        await self.wait_view()
+
+    async def click_badge(self, tls: str, which: int = 1, pause: float = 0.65):
+        """Clic en la tarjeta (o el nombre, en esquematico) del semaforo `tls` dentro del mapa."""
+        key = "fijo" if which == 0 else "rl"
+        b = await self.cdp.js(f"(window.__maps?.{key}?.badges?.() || []).find(b => b.id === {json.dumps(tls)}) || null")
+        if not b:
+            raise RuntimeError(f"no hay tarjeta visible para {tls}")
+        await self.click_xy(b["x"] + b["w"] / 2, b["y"] + b["h"] / 2, pause)
+        await asyncio.sleep(0.1)
+        await self.wait_view()
+
     async def zoom_reset(self):
-        """Vuelve a la vista completa (k=1, sin desplazamiento) recargando la pagina; la simulacion sigue en el servidor."""
-        await self.cdp.send("Page.reload")
-        await self.wait_live()
-        await self.cdp.js(OVERLAY_JS)
-        self.view = {"k": 1.0, "dx": 0.0, "dy": 0.0}
-        await asyncio.sleep(0.5)
+        """Vuelve a la vista completa con el boton "Todo" de Vista (animado; la simulacion sigue)."""
+        await self.focus("all", 0.4)
 
     async def hold(self, seconds: float):
         await asyncio.sleep(seconds)
@@ -609,7 +631,30 @@ async def clip_i(d: Demo, rec):
         await d.hold(30)
 
 
-ORDER = ["a_mappo", "b_inyectar", "c_hora", "d_incidente", "e_comm", "f_maxpressure", "i_qmix", "h_velocidad", "g_cruce"]
+@clip("j_mapa", "Mapa: boton de Vista a la 12 calle, clic en la tarjeta de la 10a, noche y estilo esquematico")
+async def clip_j(d: Demo, rec):
+    await d.reset_ui("reforma_pico", POL["mappo"], warm_to=240)
+    await d.speed("1×")
+    async with rec("j_mapa"):
+        await d.hold(1.5)
+        await d.focus("C12")  # boton "12" de Vista: los dos mapas se acercan juntos
+        await d.hold(6)
+        try:
+            await d.click_badge("C10")  # tarjeta del semaforo de la 10a calle dentro del mapa RL
+        except RuntimeError:
+            await d.focus("C10")
+        await d.hold(6)
+        await d.seg("Iluminación", "Noche")
+        await d.hold(6)
+        await d.seg("Estilo", "Esquemático")
+        await d.hold(5)
+        await d.seg("Estilo", "Realista")
+        await d.seg("Iluminación", "Auto")
+        await d.focus("all")
+        await d.hold(3)
+
+
+ORDER = ["a_mappo", "b_inyectar", "c_hora", "d_incidente", "e_comm", "f_maxpressure", "i_qmix", "h_velocidad", "g_cruce", "j_mapa"]
 
 
 async def run(args):

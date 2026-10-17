@@ -20,6 +20,10 @@ export interface Palette {
   headlight: string; // haz de los faros (noche)
   streetlight: string; // charco de luz del alumbrado (noche)
   badgeBg: string; badgeBorder: string; badgeText: string; badgeMuted: string;
+  curb: string; // bordillo (borde de la calzada y del arriate)
+  markingYellow: string; // linea amarilla junto al arriate / centro de calles de doble sentido
+  treeHi: string; // brillo de las copas de los arboles
+  building: string; buildingEdge: string; // huellas de edificios junto a las calles
 }
 
 export const DAY: Palette = {
@@ -41,6 +45,10 @@ export const DAY: Palette = {
   headlight: "#fff3c4",
   streetlight: "#ffcf7a",
   badgeBg: "rgba(14,18,27,0.86)", badgeBorder: "#2a3346", badgeText: "#e8ecf3", badgeMuted: "#8b95a7",
+  curb: "#5d646f",
+  markingYellow: "#e3b341",
+  treeHi: "#4f8f60",
+  building: "#19201d", buildingEdge: "#252e2a",
 };
 
 export const NIGHT: Palette = {
@@ -62,6 +70,10 @@ export const NIGHT: Palette = {
   headlight: "#fff3c4",
   streetlight: "#ffc861",
   badgeBg: "rgba(6,9,14,0.88)", badgeBorder: "#232b3b", badgeText: "#e8ecf3", badgeMuted: "#7d879a",
+  curb: "#353a44",
+  markingYellow: "#8c7743",
+  treeHi: "#25503a",
+  building: "#0b0f12", buildingEdge: "#141a1f",
 };
 
 function parse(c: string): [number, number, number, number] {
@@ -116,7 +128,9 @@ export const CAR_COLORS: { body: string; weight: number }[] = [
 // Medidas reales (m) y minimos en pantalla (px) para que se vean al alejar el zoom.
 export const CAR = { length: 4.6, width: 1.85, minLenPx: 6, minWidPx: 3 };
 export const SIDEWALK_M = 1.6; // ancho de banqueta a cada lado de la calzada
-export const STOP_BACK_M = 4.5; // distancia de la linea de alto al final del carril
+// Distancia de la linea de alto al final del carril: SUMO detiene el frente del carro ~1 m antes del
+// final, asi que la linea va justo ahi y la cebra queda dentro del cruce (en la boca).
+export const STOP_BACK_M = 0.8;
 export const CROSSWALK_M = 3.5; // largo del paso de cebra (sentido del transito)
 
 // Niveles de detalle: px por metro (Camera.s) a partir de los cuales se dibuja cada cosa.

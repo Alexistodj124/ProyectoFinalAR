@@ -13,9 +13,13 @@ la consola y las excepciones de la pagina, para detectar fallas del render.
     python scripts/ui_snapshot.py --out /tmp/d.png --js "window.__maps && 1" --zoom C12:6
     python scripts/ui_snapshot.py --out /tmp/e.png --size 390x844 --dpr 2              # telefono
     python scripts/ui_snapshot.py --url http://localhost:5181 --api http://localhost:8001 --out /tmp/f.png
+    python scripts/ui_snapshot.py --out /tmp/g.png --focus C12 --query style=esquematico   # boton Vista "12"
 
---zoom TLS:K (o x,y:K) centra el punto con zoom K usando la camara expuesta en window.__maps
-(mismo desplazamiento en ambos mapas, como el zoom compartido de la UI).
+--zoom TLS:K (o x,y:K) centra el punto con zoom K (K = 1: toda la red con margen de 24 px) con
+window.__setView (mismo desplazamiento en ambos mapas, como el zoom compartido de la UI).
+--focus TLS (o all) anima la vista como los botones de Vista (window.__focus) y espera a que acabe.
+Parametros de la pagina utiles en --query: style=realista|esquematico, night=1|0, focus=C12,
+layout=stacked|side, mock=1.
 """
 from __future__ import annotations
 
@@ -136,6 +140,12 @@ async def run(a) -> int:
             else:
                 expr = ZOOM_JS % (json.dumps(target), 0, 0, float(k))
             print("zoom", z, "->", await cdp.js(expr))
+        for f in a.focus:
+            print("focus", f, "->", await cdp.js(f"window.__focus ? window.__focus({json.dumps(f)}) : 'sin window.__focus'"))
+            for _ in range(40):  # espera el fin de la animacion (~0.7-1.1 s)
+                await asyncio.sleep(0.1)
+                if not await cdp.js("window.__view ? window.__view().animating : false"):
+                    break
         for js in a.js:
             print("js", js[:60], "->", await cdp.js(js))
         await asyncio.sleep(a.wait)
@@ -164,6 +174,7 @@ def main() -> int:
     ap.add_argument("--cmd", action="append", default=[], help="comando JSON por WebSocket antes de capturar (repetible)")
     ap.add_argument("--warm", type=float, default=0, help="corre a 20x hasta este tiempo simulado (s) y vuelve a 1x")
     ap.add_argument("--zoom", action="append", default=[], help="TLS:K o x,y:K (usa window.__setView)")
+    ap.add_argument("--focus", action="append", default=[], help="TLS o all: anima la vista como el boton de Vista")
     ap.add_argument("--js", action="append", default=[], help="JavaScript a evaluar antes de capturar (repetible)")
     ap.add_argument("--wait", type=float, default=2.5, help="segundos de espera antes de capturar")
     ap.add_argument("--shots", type=int, default=1)

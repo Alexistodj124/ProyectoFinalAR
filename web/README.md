@@ -1,6 +1,6 @@
 # Demo web en vivo: semáforo fijo vs. agente RL (corredor Reforma)
 
-Dos simulaciones SUMO corren **en lock-step** (mismo escenario, misma semilla, misma demanda). La única diferencia es quién controla los semáforos: el programa de tiempo fijo `fixed` del corredor (`env/net/reforma_fixed.add.xml`) o una política (por defecto max-pressure; un modelo entrenado si se elige uno). El navegador dibuja las dos redes lado a lado, con el estado de cada semáforo en su línea de alto, y muestra las métricas en vivo.
+Dos simulaciones SUMO corren **en lock-step** (mismo escenario, misma semilla, misma demanda). La única diferencia es quién controla los semáforos: el programa de tiempo fijo `fixed` del corredor (`env/net/reforma_fixed.add.xml`) o una política (por defecto max-pressure; un modelo entrenado si se elige uno). El navegador dibuja las dos redes (una encima de la otra en el corredor, lado a lado en el cruce aislado), con calles, carros y semáforos que cambian solos, y muestra las métricas en vivo.
 
 ## Arquitectura
 
@@ -93,6 +93,39 @@ Cliente -> servidor (cada comando recibe `{"type":"ack","cmd":...,"ok":true|fals
 | `{"cmd":"speed","value":0\|1\|5\|20}` | segundos simulados por segundo real (acepta cualquier valor 0–60) |
 | `{"cmd":"reset","scenario":..., "policy":{"algo":..., "run":...}, "seed":1000}` | reconstruye todo (cuesta ~1–3 s, mientras se emite `{"type":"loading"}`); borra incidentes y hora del día. Si falla (p. ej. un modelo de otra red), la simulación anterior sigue corriendo. |
 
+## El mapa
+
+El dibujo vive en `web/frontend/src/render/` (Canvas 2D, sin librerías; contratos y orden de capas en
+`render/README.md`). Los dos mapas comparten la vista: mover o acercar uno mueve el otro.
+
+- **Disposición.** Si la red es alargada (el corredor) y la ventana mide al menos 1100 px de ancho, los mapas
+  se apilan (fijo arriba, RL abajo, a todo el ancho) y el corredor se dibuja horizontal con el norte a la
+  derecha. El cruce aislado va lado a lado. En el teléfono todo va en una columna y el corredor se dibuja
+  vertical, con el norte arriba. El encabezado de cada mapa trae su leyenda.
+- **Estilo** (panel derecho): *Realista* (banquetas, marcas viales, carros con luces de freno y un semáforo
+  en cada aproximación) o *Esquemático* (el dibujo original: carriles como líneas y carros coloreados por
+  velocidad: libre, lento, detenido).
+- **Iluminación:** *Auto* (de noche cuando la hora del día es *Noche*), *Día* o *Noche*, con transición
+  suave, faros y alumbrado. Estilo e iluminación se recuerdan en el navegador (`localStorage`).
+- **Vista:** *Todo* encuadra la red; un botón por cruce (15, 14, 12, 10a, 6a) acerca los dos mapas con una
+  animación (≈140 m en el lado corto del lienzo). También se acerca con un clic en la tarjeta del semáforo
+  dentro del mapa (o en su nombre, en el esquemático); otro clic en la misma tarjeta vuelve a *Todo*. En el
+  cruce aislado (`cruce_*`, un solo semáforo) la vista inicial ya es el cruce (≈180 m), no la red completa.
+- **Tarjetas de los cruces:** nombre, luz de cada eje y segundos desde el último cambio (un guion si la
+  página se abrió a media fase). Si los dos sentidos de Reforma no coinciden (fase con adelanto o retraso),
+  la fila muestra una flecha de color por sentido. Las pastillas compactas (teléfono, lienzos bajos o mucho
+  zoom) usan siempre esas flechas.
+- **Mouse:** arrastrar mueve, la rueda acerca hacia el cursor (hasta 24×) y el doble clic (modo *Ver*)
+  acerca 2× en ese punto. Los clics de *Inyectar* e *Incidente* funcionan igual en cualquier zoom.
+- **Parámetros de la URL** (mandan sobre lo guardado): `style=realista|esquematico`, `night=1|0`,
+  `focus=C12` (cruce inicial), `layout=stacked|side`, `mock=1` (backend falso del navegador).
+  Ejemplo: `http://localhost:8000/?focus=C12&night=1`.
+- **Capturas para revisar el dibujo:** `python scripts/ui_snapshot.py --out /tmp/a.png` (Chrome headless;
+  `--zoom C12:6`, `--focus C12`, `--query style=esquematico`, `--size 390x844 --dpr 2`, `--warm 600`,
+  `--cmd '{"cmd":"time_of_day","profile":"noche"}'`; imprime los errores de la página). Para scripts, la
+  página expone `window.__focus(id | "all")`, `window.__setView(x, y, k)`, `window.__view()` y
+  `window.__maps.fijo|rl.worldToPage(x, y)`, que usa `scripts/record_demo.py`.
+
 ## Cargar un modelo entrenado
 
 1. Entrena (Colab o local) con `experiments/train.py`; el resultado queda en `runs/<exp>/<nombre>/seed<k>/` con `config.yaml` y el checkpoint. Si se entrenó en Colab, copia esa carpeta a `runs/` del repo local (o usa `WEB_RUNS_DIR`).
@@ -113,7 +146,7 @@ Antes: backend arrancado, página abierta en `http://localhost:8000`, pantalla c
 
 | Tiempo | Qué hacer | Qué decir |
 |---|---|---|
-| 0:00 | Velocidad **5×**. Señalar los dos mapas. | "Misma avenida, mismos carros, misma semilla. A la izquierda los semáforos con el tiempo fijo medido; a la derecha, el agente." |
+| 0:00 | Velocidad **5×**. Señalar los dos mapas. | "Misma avenida, mismos carros, misma semilla. Arriba los semáforos con el tiempo fijo medido; abajo, el agente." |
 | 0:15 | Señalar las tarjetas de arriba y las gráficas. | "Espera promedio, cola y vehículos por hora, en vivo. La tarjeta verde es la mejora del agente sobre el tiempo fijo." |
 | 0:35 | Modo **Inyectar**, clic en `Reforma y 12 calle` (calle transversal, 20 carros). | "Si de pronto llegan 20 carros a la 12 calle, vemos cuánto tarda cada controlador en reaccionar." |
 | 1:00 | **Hora del día**: *Mediodía* y luego *Noche*. | "Cambia la demanda a una hora que el agente no vio al entrenar." |
@@ -123,7 +156,7 @@ Antes: backend arrancado, página abierta en `http://localhost:8000`, pantalla c
 
 Notas para el ensayo:
 - La tarjeta de mejora arranca alta y se estabiliza con el tiempo. Medido en `reforma_pico` con la semilla 1000 (octubre 2026, `docs/video/README.md`): MAPPO (`E5/mappo/seed3`) ≈51 % a los 5 min simulados, ≈48 % a los 10 y ≈47 % a los 15; comm (`E6/comm/seed0`) ≈50/51/48 %; QMIX (`E5/qmix/seed3`) ≈49/48/47 %; max-pressure ≈47/47/43 %. En `cruce_pico`: DQN (`E4/dqn_best/seed1`) ≈38/46/52 %, PPO (`E4/ppo/seed0`) ≈51/55/57 %. Es la espera en vivo de la demo, no la demora total de la evaluación (§7). Ensaya con el modelo definitivo y deja el escenario corriendo ~1 min antes de empezar a hablar.
-- Un clic en el mapa de la izquierda o el de la derecha vale igual: el comando se aplica a las dos sims.
+- Un clic en cualquiera de los dos mapas vale igual: el comando se aplica a las dos sims.
 - Si algo falla en vivo: *Reiniciar* (1–3 s), o reproducir el video de respaldo.
 
 ## Video de respaldo (PLAN §9.3)

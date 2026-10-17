@@ -1,5 +1,9 @@
-import type { Mode } from "./NetCanvas";
-import type { Command, Option } from "./types";
+import { useMemo } from "react";
+import type { MapStyle, Mode } from "./NetCanvas";
+import { chooseRotation } from "./render/camera";
+import type { Command, Network, Option, TlsInfo } from "./types";
+
+export type Light = "auto" | "dia" | "noche";
 
 interface Props {
   mode: Mode; setMode: (m: Mode) => void;
@@ -12,11 +16,15 @@ interface Props {
   closedCount: number;
   demand: number | null;
   send: (c: Command) => void;
+  net: Network | null; focus: string | null; onFocus: (id: string) => void;
+  style: MapStyle; setStyle: (s: MapStyle) => void;
+  light: Light; setLight: (l: Light) => void;
 }
 
-function Seg<T extends string | number>({ items, value, onPick }: { items: [T, string][]; value: T; onPick: (v: T) => void }) {
+function Seg<T extends string | number>({ items, value, onPick, className = "" }:
+  { items: [T, string][]; value: T | null; onPick: (v: T) => void; className?: string }) {
   return (
-    <div className="seg">
+    <div className={`seg ${className}`}>
       {items.map(([v, l]) => (
         <button key={String(v)} className={v === value ? "on" : ""} onClick={() => onPick(v)}>{l}</button>
       ))}
@@ -24,7 +32,21 @@ function Seg<T extends string | number>({ items, value, onPick }: { items: [T, s
   );
 }
 
+// Etiqueta corta de un semaforo: "Reforma y 10a calle" -> "10a", "Cruce 2" -> "2".
+function shortName(t: TlsInfo): string {
+  const s = t.name.replace(/^(av(enida|\.)?\s+)?(la\s+)?reforma\s+y\s+/i, "").replace(/\s+calle$/i, "").replace(/^cruce\s+/i, "").trim();
+  return s && s.length <= 5 ? s : t.id;
+}
+
 export default function Controls(p: Props) {
+  // Botones de Vista en el orden en que se ven los cruces en un mapa ancho (de izquierda a derecha).
+  const order = useMemo(() => {
+    const net = p.net;
+    if (!net?.tls.length) return [];
+    const rot = chooseRotation(net, 2, 1), c = Math.cos(rot), s = Math.sin(rot);
+    return [...net.tls].sort((a, b) => (a.x - b.x) * c - (a.y - b.y) * s);
+  }, [p.net]);
+
   return (
     <aside className="controls">
       <div className="group">
@@ -38,11 +60,23 @@ export default function Controls(p: Props) {
           </div>
         )}
         <div className="hint">
-          {p.mode === "ver" && "Arrastra para mover, rueda para zoom."}
+          {p.mode === "ver" && "Arrastra para mover; rueda o doble clic para zoom. Clic en un cruce para acercarte."}
           {p.mode === "inyectar" && "Haz clic en una calle de cualquier mapa."}
           {p.mode === "incidente" && `Clic en una calle para cerrar/abrir. Cerradas: ${p.closedCount}`}
         </div>
       </div>
+      {order.length > 0 && (
+        <div className="group">
+          <label>Vista</label>
+          <div className="seg vista">
+            <button className={p.focus === "all" ? "on" : ""} data-focus="all" onClick={() => p.onFocus("all")}>Todo</button>
+            {order.map((t) => (
+              <button key={t.id} className={p.focus === t.id ? "on" : ""} data-focus={t.id} title={t.name}
+                onClick={() => p.onFocus(t.id)}>{shortName(t)}</button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="group">
         <label>Hora del día</label>
         <Seg value={p.profile} onPick={(v) => { p.setProfile(v as "pico"); p.send({ cmd: "time_of_day", profile: v as "pico" }); }}
@@ -70,6 +104,14 @@ export default function Controls(p: Props) {
           scenario: p.scenario || undefined,
           policy: p.policy ? JSON.parse(p.policy) : undefined,
         })}>Reiniciar</button>
+      </div>
+      <div className="group">
+        <label>Estilo</label>
+        <Seg<MapStyle> value={p.style} onPick={p.setStyle} items={[["realista", "Realista"], ["esquematico", "Esquemático"]]} />
+      </div>
+      <div className="group">
+        <label>Iluminación</label>
+        <Seg<Light> value={p.light} onPick={p.setLight} items={[["auto", "Auto"], ["dia", "Día"], ["noche", "Noche"]]} />
       </div>
     </aside>
   );
