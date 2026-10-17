@@ -1,0 +1,29 @@
+# E7 - Generalización: el mejor agente de cada familia contra las 3 líneas base en
+#   * mediodia   : hora no vista (el agente entrenó en pico)
+#   * pico_x13   : demanda +30 %
+#   * pico_incident : hora pico con un carril cerrado entre `start` y `end` (segundos)
+# "pico" se evalúa también como referencia (sin perturbación) para medir la degradación.
+exp: E7
+variants: [pico, mediodia, pico_x13, pico_incident]
+num_seconds: null          # null = el del escenario (3600 s)
+eval_seeds: 10             # primeras N de EVAL_SEEDS (1000..1009)
+
+incident:
+  # PLACEHOLDER: completar con el id de la arista del corredor cuando exista env/net/reforma.net.xml
+  # (p. ej. la arista principal entre dos semáforos). Con null se elige sola la primera arista
+  # que une dos semáforos del corredor (experiments.robustness.default_incident_edge).
+  edge: null
+  start: 900
+  end: 2100
+
+baselines: [fixed, actuated, max_pressure]
+
+# Agentes aprendidos. `from` = glob de run_dirs (relativo a --runs-dir); select: best = la semilla con
+# menor espera media en su eval.csv (si no hay, mayor retorno medio del último 10 % del train_log).
+# `base` decide la red: cruce (1 TLS, agentes individuales) o reforma (corredor, MARL).
+# Ajustar `from` al ganador de E3/E5/E6 cuando se conozcan los resultados.
+learned:
+  - {label: dqn_best,   algo: dqn,   base: cruce,   from: "E3/*/seed*", select: best}
+  - {label: ppo,        algo: ppo,   base: cruce,   from: "E4/ppo*/seed*", select: best}
+  - {label: marl_best,  algo: mappo, base: reforma, from: "E5/mappo*/seed*", select: best}
+  - {label: comm_best,  algo: comm,  base: reforma, from: "E6/comm*/seed*", select: best}
