@@ -89,9 +89,9 @@ Réplicas = 10 episodios de evaluación de UNA sola semilla de entrenamiento ele
 
 | Comparación (A contra B) | A (media) | B (media) | A − B [IC95] | A − B (%) | n (A / B) | p (Welch) | p (Holm) | IC95 se solapan | Veredicto |
 |---|---:|---:|---:|---:|---:|---:|---:|:---:|---|
-| DQN (semilla elegida) contra tiempo fijo, pico | 19.4 | 33.6 | -14.3 [-22.5, -6.1] | -42.5 % | 10 / 10 | 0.002 | 0.023 | - | favorece a DQN (semilla elegida) (p Holm < 0.05) |
+| DQN (semilla elegida) contra tiempo fijo, pico | 19.4 | 33.6 | -14.3 [-22.5, -6.1] | -42.5 % | 10 / 10 | 0.002 | 0.018 | - | favorece a DQN (semilla elegida) (p Holm < 0.05) |
 | DQN (semilla elegida) contra max-pressure, pico | 19.4 | 19.8 | -0.4 [-7.9, +7.1] | -2.1 % | 10 / 10 | 0.910 | 1.000 | - | sin diferencia detectable |
-| PPO (semilla elegida) contra tiempo fijo, pico | 20.8 | 33.6 | -12.8 [-21.9, -3.8] | -38.1 % | 10 / 10 | 0.008 | 0.095 | - | favorece a PPO (semilla elegida), solo sin corregir (p < 0.05) |
+| PPO (semilla elegida) contra tiempo fijo, pico | 20.8 | 33.6 | -12.8 [-21.9, -3.8] | -38.1 % | 10 / 10 | 0.008 | 0.072 | - | favorece a PPO (semilla elegida), solo sin corregir (p < 0.05) |
 | PPO (semilla elegida) contra max-pressure, pico | 20.8 | 19.8 | +1.1 [-7.4, +9.5] | +5.3 % | 10 / 10 | 0.796 | 1.000 | - | sin diferencia detectable |
 
 ## cruce_mediodia [mediodia]: Demora total (s/veh demandado)
@@ -116,19 +116,19 @@ Réplicas = 10 episodios de evaluación de UNA sola semilla de entrenamiento ele
 
 | Comparación (A contra B) | A (media) | B (media) | A − B [IC95] | A − B (%) | n (A / B) | p (Welch) | p (Holm) | IC95 se solapan | Veredicto |
 |---|---:|---:|---:|---:|---:|---:|---:|:---:|---|
-| DQN (semilla elegida) contra tiempo fijo, pico_incident | 462.3 | 445.9 | +16.4 [+0.0, +32.8] | +3.7 % | 10 / 10 | 0.049 | 0.346 | - | favorece a Tiempo fijo, solo sin corregir (p < 0.05) |
-| DQN (semilla elegida) contra max-pressure, pico_incident | 462.3 | 423.2 | +39.1 [+23.9, +54.3] | +9.2 % | 10 / 10 | <0.001 | 0.001 | - | favorece a Max-pressure (p Holm < 0.05) |
-| PPO (semilla elegida) contra tiempo fijo, pico_incident | 440.4 | 445.9 | -5.4 [-22.4, +11.6] | -1.2 % | 10 / 10 | 0.507 | 1.000 | - | sin diferencia detectable |
-| PPO (semilla elegida) contra max-pressure, pico_incident | 440.4 | 423.2 | +17.2 [+1.3, +33.1] | +4.1 % | 10 / 10 | 0.035 | 0.284 | - | favorece a Max-pressure, solo sin corregir (p < 0.05) |
+| DQN (semilla elegida) contra tiempo fijo, pico_incident | 190.4 | 228.3 | -38.0 [-53.1, -22.8] | -16.6 % | 10 / 10 | <0.001 | <0.001 | - | favorece a DQN (semilla elegida) (p Holm < 0.05) |
+| DQN (semilla elegida) contra max-pressure, pico_incident | 190.4 | 158.0 | +32.3 [+17.0, +47.7] | +20.5 % | 10 / 10 | <0.001 | 0.005 | - | favorece a Max-pressure (p Holm < 0.05) |
+| PPO (semilla elegida) contra tiempo fijo, pico_incident | 191.7 | 228.3 | -36.6 [-52.7, -20.6] | -16.0 % | 10 / 10 | <0.001 | 0.002 | - | favorece a PPO (semilla elegida) (p Holm < 0.05) |
+| PPO (semilla elegida) contra max-pressure, pico_incident | 191.7 | 158.0 | +33.7 [+17.5, +49.9] | +21.3 % | 10 / 10 | <0.001 | 0.005 | - | favorece a Max-pressure (p Holm < 0.05) |
 
 ## reforma_pico [pico]: Demora total (s/veh demandado)
 
 | Comparación (A contra B) | A (media) | B (media) | A − B [IC95] | A − B (%) | n (A / B) | p (Welch) | p (Holm) | IC95 se solapan | Veredicto |
 |---|---:|---:|---:|---:|---:|---:|---:|:---:|---|
 | MAPPO (semilla elegida) contra tiempo fijo, pico | 36.8 | 79.1 | -42.2 [-51.0, -33.4] | -53.4 % | 10 / 10 | <0.001 | <0.001 | - | favorece a MAPPO (semilla elegida) (p Holm < 0.05) |
-| MAPPO (semilla elegida) contra max-pressure, pico | 36.8 | 41.7 | -4.9 [-8.7, -1.0] | -11.7 % | 10 / 10 | 0.017 | 0.167 | - | favorece a MAPPO (semilla elegida), solo sin corregir (p < 0.05) |
+| MAPPO (semilla elegida) contra max-pressure, pico | 36.8 | 41.7 | -4.9 [-8.7, -1.0] | -11.7 % | 10 / 10 | 0.017 | 0.121 | - | favorece a MAPPO (semilla elegida), solo sin corregir (p < 0.05) |
 | Comunicación (semilla elegida) contra tiempo fijo, pico | 36.8 | 79.1 | -42.3 [-51.1, -33.4] | -53.4 % | 10 / 10 | <0.001 | <0.001 | - | favorece a Comunicación (semilla elegida) (p Holm < 0.05) |
-| Comunicación (semilla elegida) contra max-pressure, pico | 36.8 | 41.7 | -4.9 [-8.8, -0.9] | -11.7 % | 10 / 10 | 0.018 | 0.167 | - | favorece a Comunicación (semilla elegida), solo sin corregir (p < 0.05) |
+| Comunicación (semilla elegida) contra max-pressure, pico | 36.8 | 41.7 | -4.9 [-8.8, -0.9] | -11.7 % | 10 / 10 | 0.018 | 0.121 | - | favorece a Comunicación (semilla elegida), solo sin corregir (p < 0.05) |
 
 ## reforma_mediodia [mediodia]: Demora total (s/veh demandado)
 
@@ -137,16 +137,16 @@ Réplicas = 10 episodios de evaluación de UNA sola semilla de entrenamiento ele
 | MAPPO (semilla elegida) contra tiempo fijo, mediodia | 17.2 | 30.4 | -13.2 [-13.7, -12.7] | -43.5 % | 10 / 10 | <0.001 | <0.001 | - | favorece a MAPPO (semilla elegida) (p Holm < 0.05) |
 | MAPPO (semilla elegida) contra max-pressure, mediodia | 17.2 | 21.1 | -3.9 [-4.4, -3.4] | -18.5 % | 10 / 10 | <0.001 | <0.001 | - | favorece a MAPPO (semilla elegida) (p Holm < 0.05) |
 | Comunicación (semilla elegida) contra tiempo fijo, mediodia | 20.7 | 30.4 | -9.7 [-10.2, -9.2] | -32.0 % | 10 / 10 | <0.001 | <0.001 | - | favorece a Comunicación (semilla elegida) (p Holm < 0.05) |
-| Comunicación (semilla elegida) contra max-pressure, mediodia | 20.7 | 21.1 | -0.4 [-0.9, +0.1] | -1.9 % | 10 / 10 | 0.108 | 0.650 | - | sin diferencia detectable |
+| Comunicación (semilla elegida) contra max-pressure, mediodia | 20.7 | 21.1 | -0.4 [-0.9, +0.1] | -1.9 % | 10 / 10 | 0.108 | 0.541 | - | sin diferencia detectable |
 
 ## reforma_pico_x13 [pico_x13]: Demora total (s/veh demandado)
 
 | Comparación (A contra B) | A (media) | B (media) | A − B [IC95] | A − B (%) | n (A / B) | p (Welch) | p (Holm) | IC95 se solapan | Veredicto |
 |---|---:|---:|---:|---:|---:|---:|---:|:---:|---|
-| MAPPO (semilla elegida) contra tiempo fijo, pico_x13 | 373.3 | 345.7 | +27.5 [-9.9, +65.0] | +8.0 % | 10 / 10 | 0.133 | 0.665 | - | sin diferencia detectable |
+| MAPPO (semilla elegida) contra tiempo fijo, pico_x13 | 373.3 | 345.7 | +27.5 [-9.9, +65.0] | +8.0 % | 10 / 10 | 0.133 | 0.541 | - | sin diferencia detectable |
 | MAPPO (semilla elegida) contra max-pressure, pico_x13 | 373.3 | 252.2 | +121.1 [+83.3, +158.8] | +48.0 % | 10 / 10 | <0.001 | <0.001 | - | favorece a Max-pressure (p Holm < 0.05) |
 | Comunicación (semilla elegida) contra tiempo fijo, pico_x13 | 281.8 | 345.7 | -63.9 [-79.7, -48.1] | -18.5 % | 10 / 10 | <0.001 | <0.001 | - | favorece a Comunicación (semilla elegida) (p Holm < 0.05) |
-| Comunicación (semilla elegida) contra max-pressure, pico_x13 | 281.8 | 252.2 | +29.6 [+12.8, +46.4] | +11.7 % | 10 / 10 | 0.002 | 0.023 | - | favorece a Max-pressure (p Holm < 0.05) |
+| Comunicación (semilla elegida) contra max-pressure, pico_x13 | 281.8 | 252.2 | +29.6 [+12.8, +46.4] | +11.7 % | 10 / 10 | 0.002 | 0.018 | - | favorece a Max-pressure (p Holm < 0.05) |
 
 ## reforma_pico [pico_incident]: Demora total (s/veh demandado)
 
@@ -154,6 +154,6 @@ Réplicas = 10 episodios de evaluación de UNA sola semilla de entrenamiento ele
 |---|---:|---:|---:|---:|---:|---:|---:|:---:|---|
 | MAPPO (semilla elegida) contra tiempo fijo, pico_incident | 165.5 | 198.4 | -33.0 [-45.2, -20.7] | -16.6 % | 10 / 10 | <0.001 | <0.001 | - | favorece a MAPPO (semilla elegida) (p Holm < 0.05) |
 | MAPPO (semilla elegida) contra max-pressure, pico_incident | 165.5 | 161.8 | +3.7 [-6.9, +14.3] | +2.3 % | 10 / 10 | 0.471 | 1.000 | - | sin diferencia detectable |
-| Comunicación (semilla elegida) contra tiempo fijo, pico_incident | 175.2 | 198.4 | -23.3 [-35.4, -11.1] | -11.7 % | 10 / 10 | <0.001 | 0.012 | - | favorece a Comunicación (semilla elegida) (p Holm < 0.05) |
-| Comunicación (semilla elegida) contra max-pressure, pico_incident | 175.2 | 161.8 | +13.4 [+2.9, +23.9] | +8.3 % | 10 / 10 | 0.015 | 0.167 | - | favorece a Max-pressure, solo sin corregir (p < 0.05) |
+| Comunicación (semilla elegida) contra tiempo fijo, pico_incident | 175.2 | 198.4 | -23.3 [-35.4, -11.1] | -11.7 % | 10 / 10 | <0.001 | 0.010 | - | favorece a Comunicación (semilla elegida) (p Holm < 0.05) |
+| Comunicación (semilla elegida) contra max-pressure, pico_incident | 175.2 | 161.8 | +13.4 [+2.9, +23.9] | +8.3 % | 10 / 10 | 0.015 | 0.121 | - | favorece a Max-pressure, solo sin corregir (p < 0.05) |
 

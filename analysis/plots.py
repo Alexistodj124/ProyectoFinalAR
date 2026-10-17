@@ -538,7 +538,7 @@ E7_NOTE = ("Barras: media ± IC95 sobre los 10 episodios de evaluación (semilla
 def robustness_plot(runs_dir=RUNS_DIR, out_dir=FIG_DIR, name: str = "E7_robustness",
                     metric: str = "total_delay") -> list[Path]:
     """Matriz de paneles: fila = red (cruce, corredor), columna = variante de evaluación; barras = métodos con IC95.
-    Cada panel tiene su propia escala (el incidente multiplica la demora por 10)."""
+    Cada panel tiene su propia escala (el incidente multiplica la demora por 2.5 a 10)."""
     apply_style()
     df = _rob_frame(runs_dir)
     metric = _rob_metric(df, metric)
