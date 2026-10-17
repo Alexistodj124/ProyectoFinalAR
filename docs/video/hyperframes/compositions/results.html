@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template id="results-template">
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #0b0e14;
+          color: #e8ecf3;
+          font-family: "Montserrat", sans-serif;
+        }
+        #res-bg {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(900px 600px at 30% 60%, rgba(46, 230, 166, 0.1), transparent 70%),
+            radial-gradient(700px 500px at 88% 30%, rgba(159, 179, 209, 0.08), transparent 70%);
+        }
+        #res-head {
+          position: absolute;
+          left: 120px;
+          top: 70px;
+          width: 1680px;
+        }
+        #res-kicker {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 24px;
+          letter-spacing: 0.18em;
+          color: #2ee6a6;
+        }
+        #res-title {
+          margin-top: 14px;
+          font-weight: 900;
+          font-size: 64px;
+          line-height: 1.08;
+          letter-spacing: -0.03em;
+        }
+        #res-title .g { color: #2ee6a6; }
+        #res-sub {
+          margin-top: 10px;
+          font-size: 32px;
+          color: #c9d2e3;
+        }
+        #res-sub b { color: #c7d6ee; font-weight: 700; }
+        .res-panel {
+          position: absolute;
+          top: 318px;
+          height: 560px;
+          border-radius: 24px;
+          background: #121722;
+          border: 3px solid #232a38;
+          padding: 30px 36px;
+        }
+        #res-p1 { left: 120px; width: 1000px; }
+        #res-p2 { left: 1150px; width: 650px; }
+        .res-ptitle {
+          font-weight: 900;
+          font-size: 34px;
+          letter-spacing: -0.02em;
+        }
+        .res-punit {
+          margin-top: 4px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 20px;
+          color: #8b95a7;
+        }
+        .res-rows {
+          margin-top: 26px;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+        .res-row {
+          display: flex;
+          align-items: center;
+          height: 52px;
+        }
+        .res-label {
+          flex: 0 0 auto;
+          font-size: 26px;
+          font-weight: 700;
+        }
+        #res-p1 .res-label { width: 290px; }
+        #res-p2 .res-label { width: 200px; }
+        .res-track {
+          position: relative;
+          height: 36px;
+          border-radius: 8px;
+          background: #1a2130;
+        }
+        #res-p1 .res-track { width: 440px; }
+        #res-p2 .res-track { width: 210px; }
+        .res-bar {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          border-radius: 8px;
+          transform-origin: 0 50%;
+        }
+        .res-val {
+          flex: 0 0 110px;
+          margin-left: 18px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 30px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+        }
+        .res-delta {
+          flex: 0 0 auto;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 22px;
+          font-weight: 700;
+          padding: 4px 12px;
+          border-radius: 999px;
+          background: rgba(46, 230, 166, 0.14);
+          color: #2ee6a6;
+        }
+        .res-delta.base { background: rgba(159, 179, 209, 0.14); color: #c7d6ee; }
+        .res-delta.ref { background: rgba(255, 159, 67, 0.14); color: #ffb26b; }
+        .fijo .res-bar { background: #ff9f43; }
+        .fijo .res-val { color: #ff9f43; }
+        .act .res-bar { background: #b9824d; }
+        .act .res-val { color: #e0a56e; }
+        .rl .res-bar { background: #2ee6a6; }
+        .rl .res-val { color: #2ee6a6; }
+        .mp .res-bar { background: #9fb3d1; }
+        .mp .res-val { color: #c7d6ee; }
+        .res-tag {
+          display: inline-block;
+          margin-left: 10px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 16px;
+          font-weight: 400;
+          color: #8b95a7;
+          vertical-align: middle;
+        }
+        #res-robust {
+          position: absolute;
+          left: 120px;
+          top: 906px;
+          width: 1680px;
+          font-size: 21px;
+          color: #c9d2e3;
+          white-space: nowrap;
+        }
+        #res-robust b { color: #2ee6a6; }
+        .res-rk {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 19px;
+          letter-spacing: 0.1em;
+          color: #2ee6a6;
+          margin-right: 14px;
+        }
+        #res-foot {
+          position: absolute;
+          left: 120px;
+          top: 960px;
+          width: 1680px;
+          font-size: 21px;
+          line-height: 1.45;
+          color: #9aa4b6;
+        }
+      </style>
+
+      <div id="root" data-composition-id="results" data-width="1920" data-height="1080" data-duration="15">
+        <div id="res-bg"></div>
+        <div id="res-head">
+          <div id="res-kicker">RESULTADOS DE LA EVALUACIÓN · HORA PICO</div>
+          <div id="res-title">Los agentes RL bajan la demora <span class="g">≈40 %</span> frente al tiempo fijo</div>
+          <div id="res-sub">…y <b>max-pressure</b> (regla clásica, no aprende) sigue siendo una línea base muy fuerte.</div>
+        </div>
+
+        <div class="res-panel" id="res-p1">
+          <div class="res-ptitle">Corredor Reforma · 5 semáforos</div>
+          <div class="res-punit">demora total por vehículo (s) · menos es mejor</div>
+          <div class="res-rows">
+            <div class="res-row fijo"><div class="res-label">Tiempo fijo</div><div class="res-track"><div class="res-bar" data-v="79.1" data-max="79.1"></div></div><div class="res-val" data-v="79.1">0.0</div><div class="res-delta ref">referencia</div></div>
+            <div class="res-row act"><div class="res-label">Actuado</div><div class="res-track"><div class="res-bar" data-v="63.4" data-max="79.1"></div></div><div class="res-val" data-v="63.4">0.0</div><div class="res-delta base">−20 %</div></div>
+            <div class="res-row rl"><div class="res-label">MAPPO</div><div class="res-track"><div class="res-bar" data-v="46.8" data-max="79.1"></div></div><div class="res-val" data-v="46.8">0.0</div><div class="res-delta">−41 %</div></div>
+            <div class="res-row rl"><div class="res-label">Comm</div><div class="res-track"><div class="res-bar" data-v="46.2" data-max="79.1"></div></div><div class="res-val" data-v="46.2">0.0</div><div class="res-delta">−42 %</div></div>
+            <div class="res-row rl"><div class="res-label">QMIX<span class="res-tag">equidad</span></div><div class="res-track"><div class="res-bar" data-v="46.5" data-max="79.1"></div></div><div class="res-val" data-v="46.5">0.0</div><div class="res-delta">−41 %</div></div>
+            <div class="res-row mp"><div class="res-label">Max-pressure</div><div class="res-track"><div class="res-bar" data-v="41.7" data-max="79.1"></div></div><div class="res-val" data-v="41.7">0.0</div><div class="res-delta base">−47 %</div></div>
+          </div>
+        </div>
+
+        <div class="res-panel" id="res-p2">
+          <div class="res-ptitle">Cruce 12 calle · 1 semáforo</div>
+          <div class="res-punit">demora total por vehículo (s)</div>
+          <div class="res-rows">
+            <div class="res-row fijo"><div class="res-label">Tiempo fijo</div><div class="res-track"><div class="res-bar" data-v="33.6" data-max="33.6"></div></div><div class="res-val" data-v="33.6">0.0</div></div>
+            <div class="res-row rl"><div class="res-label">DQN</div><div class="res-track"><div class="res-bar" data-v="21.1" data-max="33.6"></div></div><div class="res-val" data-v="21.1">0.0</div><div class="res-delta">−37 %</div></div>
+            <div class="res-row rl"><div class="res-label">PPO</div><div class="res-track"><div class="res-bar" data-v="23.8" data-max="33.6"></div></div><div class="res-val" data-v="23.8">0.0</div><div class="res-delta">−29 %</div></div>
+            <div class="res-row mp"><div class="res-label">Max-pressure</div><div class="res-track"><div class="res-bar" data-v="19.8" data-max="33.6"></div></div><div class="res-val" data-v="19.8">0.0</div><div class="res-delta base">−41 %</div></div>
+          </div>
+        </div>
+
+        <div id="res-robust"><span class="res-rk">ROBUSTEZ (E7)</span>MAPPO de la demo con el incidente 12→10a: <b>165 s</b> vs fijo 198 s (−17 %) · con +30 % de demanda no generaliza: 373 vs 346 s (comm sí: 282 s).</div>
+        <div id="res-foot">Promedio de 10 semillas de evaluación × 5 semillas de entrenamiento (líneas base y E7: 10 semillas) · runs/E1, E4, E5, E6, E7, E8 · conteos de tráfico sintéticos y provisionales · la "espera" en vivo de la demo no es esta métrica.</div>
+      </div>
+
+      <script>
+        (function () {
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo("#res-bg", { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "sine.out" }, 0);
+          tl.fromTo("#res-kicker", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.1);
+          tl.fromTo("#res-title", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, 0.2);
+          tl.fromTo("#res-sub", { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 0.55);
+          tl.fromTo("#res-p1", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 0.8);
+          tl.fromTo("#res-p2", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 1.0);
+          // stat-bars-and-fills + conteo: cada barra crece (scaleX) mientras su número sube
+          const panels = [["#res-p1", 1.3], ["#res-p2", 1.5]];
+          panels.forEach(([sel, t0]) => {
+            document.querySelectorAll(sel + " .res-row").forEach((row, i) => {
+              const bar = row.querySelector(".res-bar");
+              const val = row.querySelector(".res-val");
+              const v = parseFloat(bar.dataset.v), mx = parseFloat(bar.dataset.max);
+              bar.style.width = (100 * v / mx).toFixed(2) + "%";
+              const at = t0 + i * 0.28;
+              tl.fromTo(bar, { scaleX: 0 }, { scaleX: 1, duration: 0.9, ease: "power3.out" }, at);
+              const proxy = { n: 0 };
+              tl.fromTo(proxy, { n: 0 }, {
+                n: v, duration: 0.9, ease: "power3.out",
+                onUpdate: () => { val.textContent = proxy.n.toFixed(1); },
+              }, at);
+              const d = row.querySelector(".res-delta");
+              if (d) tl.fromTo(d, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(2)" }, at + 0.75);
+            });
+          });
+          tl.fromTo("#res-robust", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 3.6);
+          tl.fromTo("#res-foot", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 3.9);
+          // pulso sobre la fila de max-pressure del corredor (la línea base honesta)
+          tl.to("#res-p1 .mp .res-bar", { opacity: 0.55, duration: 0.5, ease: "sine.inOut", yoyo: true, repeat: 3 }, 6.0);
+          tl.to("#res-head, .res-panel, #res-robust, #res-foot", { opacity: 0, duration: 0.45, ease: "power2.in" }, 14.5);
+          window.__timelines["results"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

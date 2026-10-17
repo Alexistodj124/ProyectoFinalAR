@@ -32,7 +32,9 @@ export default function App() {
   useEffect(() => { if (scenario && status === "live") loadPolicies(scenario); }, [scenario, status, loadPolicies]);
   const srvPolicy = msg?.policy ? policyValue(msg.policy.algo, msg.policy.run) : "";
   useEffect(() => { if (srvPolicy) setPolicy(srvPolicy); }, [srvPolicy]);
-  useEffect(() => { if (!policy && policies.length) setPolicy(policies[0].value); }, [policies, policy]);
+  // Si la lista cambia (otro escenario) y la politica elegida ya no esta, usar la primera: el <select> la muestra
+  // y Reiniciar debe mandar esa, no la anterior (p. ej. MAPPO al pasar a cruce_* daba error de red incompatible).
+  useEffect(() => { if (policies.length && !policies.some((o) => o.value === policy)) setPolicy(policies[0].value); }, [policies, policy]);
   const srvProfile = msg?.profile ?? "";
   useEffect(() => { if (srvProfile === "pico" || srvProfile === "mediodia" || srvProfile === "noche") setProfile(srvProfile); }, [srvProfile]);
   const srvSpeed = msg?.speed;

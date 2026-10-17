@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- GENERADO por ../edl.py (capítulo ch04): editar la EDL ahí y volver a correr `python3 edl.py` -->
+  </head>
+  <body>
+    <template id="ch04-template">
+      <style>
+        #root { position: absolute; inset: 0; font-family: "Montserrat", sans-serif; color: #e8ecf3; }
+        #ch04-frame { position: absolute; left: 120px; top: 22px; width: 1680px; height: 945px; overflow: hidden; border-radius: 16px; background: #0b0e14; }
+        #ch04-cam { position: absolute; left: 0; top: 0; width: 1680px; height: 945px; transform-origin: 0 0; }
+        #ch04-footage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform: scale(0.875); transform-origin: 0 0; }
+        #ch04-footage .vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+        #ch04-footage .ring { position: absolute; border: 5px solid #2ee6a6; border-radius: 16px; margin: -6px 0 0 -6px; padding: 6px;
+          box-sizing: content-box; box-shadow: 0 0 28px rgba(46, 230, 166, 0.55), inset 0 0 18px rgba(46, 230, 166, 0.25); }
+        #root .caption { position: absolute; left: 120px; top: 986px; width: 1680px; height: 84px; font-size: 30px; font-weight: 700;
+          letter-spacing: -0.01em; white-space: nowrap; }
+        #root .caption::before { content: attr(data-k); display: block; margin-bottom: 8px; font-family: "JetBrains Mono", monospace;
+          font-size: 20px; font-weight: 400; letter-spacing: 0.12em; color: #2ee6a6; }
+        #root .chip { position: absolute; right: 120px; top: 982px; height: 32px; padding: 0 14px; border-radius: 8px;
+          background: #1b2434; border: 2px solid #3a4a6a; color: #e2e8f2; font-family: "JetBrains Mono", monospace;
+          font-size: 18px; line-height: 28px; letter-spacing: 0.08em; white-space: nowrap; }
+      </style>
+
+      <div id="root" data-composition-id="ch04" data-width="1920" data-height="1080" data-duration="29.6">
+        <div id="ch04-frame">
+          <div id="ch04-cam">
+            <div id="ch04-footage">
+          <video id="ch04-v05" class="clip vid" src="../media/d_incidente.mp4" data-start="0" data-duration="11" data-media-start="0.8" data-playback-rate="1" data-track-index="1" data-hf-media-start-basis="local" muted playsinline></video>
+          <video id="ch04-v06" class="clip vid" src="../media/d_incidente.mp4" data-start="11" data-duration="7.8" data-media-start="11.8" data-playback-rate="2.5" data-track-index="1" data-hf-media-start-basis="local" muted playsinline></video>
+          <video id="ch04-v07" class="clip vid" src="../media/d_incidente.mp4" data-start="18.8" data-duration="6" data-media-start="31.3" data-playback-rate="1" data-track-index="1" data-hf-media-start-basis="local" muted playsinline></video>
+          <video id="ch04-v08" class="clip vid" src="../media/d_incidente.mp4" data-start="24.8" data-duration="4.8" data-media-start="37.3" data-playback-rate="2.5" data-track-index="1" data-hf-media-start-basis="local" muted playsinline></video>
+          <div id="ch04-ring08" class="clip ring" data-start="4.8" data-duration="6" data-track-index="2" style="left:382px;top:292px;width:100px;height:330px"></div>
+          <div id="ch04-ring09" class="clip ring" data-start="4.8" data-duration="6" data-track-index="2" style="left:1201px;top:292px;width:100px;height:330px"></div>
+            </div>
+          </div>
+        </div>
+      <div id="ch04-cap10" class="clip caption" data-start="0" data-duration="3.8" data-track-index="3" data-k="04 / 07 · INCIDENTE EN LA REFORMA">Zoom con la rueda del mouse al tramo de la Reforma entre la 12 y la 10a calle.</div>
+      <div id="ch04-cap11" class="clip caption" data-start="3.8" data-duration="7.2" data-track-index="3" data-k="04 / 07 · INCIDENTE EN LA REFORMA">Incidente hacia el norte: 2 de 3 carriles rectos cerrados; la cola crece hacia atrás.</div>
+      <div id="ch04-cap12" class="clip caption" data-start="11" data-duration="7.8" data-track-index="3" data-k="04 / 07 · INCIDENTE EN LA REFORMA">Con el tramo cerrado, la cola del lado RL sigue siendo mucho menor que la del tiempo fijo.</div>
+      <div id="ch04-cap13" class="clip caption" data-start="18.8" data-duration="10.8" data-track-index="3" data-k="04 / 07 · INCIDENTE EN LA REFORMA">Otro clic retira el incidente: se reabren los carriles y la cola se disipa.</div>
+      <div id="ch04-chip03" class="clip chip" data-start="11" data-duration="7.8" data-track-index="4">VIDEO 2,5×</div>
+      <div id="ch04-chip04" class="clip chip" data-start="24.8" data-duration="4.8" data-track-index="4">VIDEO 2,5×</div>
+      </div>
+
+      <script>
+        (function () {
+          const D = {"dur": 29.6, "rings": [[4.8, 10.8], [4.8, 10.8]], "caps": [[0.0, 3.8], [3.8, 11.0], [11.0, 18.8], [18.8, 29.6]], "chips": [[11.0, 18.8], [24.8, 29.6]], "punches": [], "first": false};
+          const root = document.querySelector('[data-composition-id="ch04"]');
+          const q = (s) => root.querySelectorAll(s);
+          const tl = gsap.timeline({ paused: true });
+          if (D.first) tl.fromTo("#ch04-frame", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, 0);
+          // subtítulos: sube y entra (waterfall-entry contenido), sale rápido
+          q(".caption").forEach((el, i) => {
+            const [a, b] = D.caps[i];
+            tl.fromTo(el, { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "expo.out" }, a + 0.05);
+            if (b - a > 1.2 && b < D.dur - 0.05) tl.to(el, { opacity: 0, duration: 0.2, ease: "power1.in" }, b - 0.2);
+          });
+          q(".chip").forEach((el, i) => {
+            const [a] = D.chips[i];
+            tl.fromTo(el, { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, a + 0.05);
+          });
+          // anillos de resaltado sobre la UI real
+          q(".ring").forEach((el, i) => {
+            const [a, b] = D.rings[i];
+            tl.fromTo(el, { scale: 1.25, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "power3.out" }, a);
+            const pulses = Math.max(0, Math.floor((b - a - 0.9) / 0.5));
+            if (pulses > 0) tl.to(el, { scale: 1.05, duration: 0.25, ease: "sine.inOut", yoyo: true, repeat: pulses - 1 }, a + 0.45);
+            tl.to(el, { opacity: 0, duration: 0.25 }, b - 0.25);
+          });
+          // punch-ins (viewport-change: un solo envoltorio con escala + traslación)
+          D.punches.forEach(([a, b, s, x, y]) => {
+            tl.fromTo("#ch04-cam", { scale: 1, x: 0, y: 0 }, { scale: s, x: x, y: y, duration: 0.9, ease: "power3.inOut", immediateRender: false }, a);
+            tl.to("#ch04-cam", { scale: 1, x: 0, y: 0, duration: 0.45, ease: "power2.inOut" }, b - 0.45);
+          });
+          window.__timelines["ch04"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

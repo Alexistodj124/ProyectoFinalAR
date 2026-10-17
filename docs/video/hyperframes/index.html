@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Demo de respaldo · Semáforos inteligentes en Av. La Reforma</title>
+    <!-- GENERADO por edl.py: editar la EDL ahí y volver a correr `python3 edl.py` -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0b0e14; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #0b0e14;
+        font-family: "Montserrat", sans-serif; color: #e8ecf3; }
+      #bg-glow { position: absolute; inset: -80px; background:
+        radial-gradient(820px 560px at 12% 88%, rgba(46, 230, 166, 0.10), transparent 70%),
+        radial-gradient(760px 520px at 92% 8%, rgba(255, 159, 67, 0.07), transparent 70%); }
+      #bg-grid { position: absolute; inset: 0; background-image:
+        linear-gradient(rgba(139, 149, 167, 0.06) 2px, transparent 2px),
+        linear-gradient(90deg, rgba(139, 149, 167, 0.06) 2px, transparent 2px); background-size: 120px 120px; }
+      .slot { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="225.533">
+      <div id="bg-glow"></div>
+      <div id="bg-grid"></div>
+
+      <!-- Marco, riel de capítulos y etiqueta EN VIVO (solo durante la demo) -->
+      <div id="el-chrome" class="slot" data-composition-id="chrome" data-composition-src="compositions/chrome.html"
+        data-start="14.5" data-duration="190.533" data-track-index="0" data-width="1920" data-height="1080"></div>
+
+      <!-- Capítulos de la demo (metraje real) -->
+      <div id="el-ch01" class="slot" data-composition-id="ch01" data-composition-src="compositions/ch01.html"
+        data-start="14.5" data-duration="28" data-track-index="1" data-width="1920" data-height="1080"></div>
+      <div id="el-ch02" class="slot" data-composition-id="ch02" data-composition-src="compositions/ch02.html"
+        data-start="42.5" data-duration="24" data-track-index="1" data-width="1920" data-height="1080"></div>
+      <div id="el-ch03" class="slot" data-composition-id="ch03" data-composition-src="compositions/ch03.html"
+        data-start="66.5" data-duration="20" data-track-index="1" data-width="1920" data-height="1080"></div>
+      <div id="el-ch04" class="slot" data-composition-id="ch04" data-composition-src="compositions/ch04.html"
+        data-start="86.5" data-duration="29.6" data-track-index="1" data-width="1920" data-height="1080"></div>
+      <div id="el-ch05" class="slot" data-composition-id="ch05" data-composition-src="compositions/ch05.html"
+        data-start="116.1" data-duration="36" data-track-index="1" data-width="1920" data-height="1080"></div>
+      <div id="el-ch06" class="slot" data-composition-id="ch06" data-composition-src="compositions/ch06.html"
+        data-start="152.1" data-duration="23.3667" data-track-index="1" data-width="1920" data-height="1080"></div>
+      <div id="el-ch07" class="slot" data-composition-id="ch07" data-composition-src="compositions/ch07.html"
+        data-start="175.467" data-duration="29.5667" data-track-index="1" data-width="1920" data-height="1080"></div>
+
+      <!-- Tarjetas -->
+      <div id="el-title" class="slot" data-composition-id="title" data-composition-src="compositions/title.html"
+        data-start="0" data-duration="5" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="el-context" class="slot" data-composition-id="context" data-composition-src="compositions/context.html"
+        data-start="5" data-duration="9.5" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="el-results" class="slot" data-composition-id="results" data-composition-src="compositions/results.html"
+        data-start="205.033" data-duration="15" data-track-index="2" data-width="1920" data-height="1080"></div>
+      <div id="el-closing" class="slot" data-composition-id="closing" data-composition-src="compositions/closing.html"
+        data-start="220.033" data-duration="5.5" data-track-index="2" data-width="1920" data-height="1080"></div>
+    </div>
+
+    <script>
+      (function () {
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#bg-glow", { x: -30, y: 10 }, { x: 30, y: -10, duration: 225.533, ease: "none" }, 0);
+        window.__timelines["main"] = tl;
+      })();
+    </script>
+  </body>
+</html>
