@@ -24,6 +24,7 @@ from queue import Empty, Queue
 import sumo_rl.environment.env as sumo_rl_env
 import traci.constants as tc
 
+from env.incidents import close_lanes, incident_lanes, open_lanes
 from env.reforma_env import _route_for, get_sumo_env, make_parallel_env
 from env.scenarios import EVAL_SEEDS, SCENARIOS, Scenario, get_scenario
 from web.backend.demand_driver import RouteBook, SharedDemand, SimDemand, load_schedule, make_generator
@@ -72,8 +73,9 @@ class Sim:
             self.conn = self.se.sumo
             self.demand = SimDemand(shared, first)
             self.t = int(self.se.sim_step)
-            self.controlled = not self.se.fixed_ts
+            self.controlled = not self.se.fixed_ts  # "fijo": SUMO corre su programa, nunca se aplican acciones
             self._warned = False
+            self.policy_error: str | None = None
             if self.controlled:
                 policy.reset(self.se)
                 self._act(obs)
@@ -86,7 +88,7 @@ class Sim:
         self.finished_wait = 0.0
         self.arrived = 0
         self._arr_hist: deque[tuple[int, int]] = deque([(self.t, 0)])
-        self._cache_closed: dict[str, list[str]] = {}
+        self._saved_incidents: dict[str, dict[str, list[str]]] = {}
 
     # ---- control -------------------------------------------------------------
     def _act(self, obs: dict) -> None:
@@ -98,6 +100,7 @@ class Sim:
             if not self._warned:
                 log.exception("policy.act fallo (%s); se mantiene la fase actual", exc)
                 self._warned = True
+                self.policy_error = f"{type(exc).__name__}: {exc}"
             actions = {a: ts[a].green_phase for a in obs}
         clean = {a: min(max(int(v), 0), ts[a].num_green_phases - 1) for a, v in actions.items() if a in ts}
         self.se._apply_actions(clean)
@@ -131,19 +134,17 @@ class Sim:
 
     # ---- comandos ------------------------------------------------------------
     def set_incident(self, edge_id: str, on: bool) -> None:
-        """Cierra (setDisallowed passenger) o restaura todos los carriles del borde."""
-        n_lanes = self.conn.edge.getLaneNumber(edge_id)
-        lanes = [f"{edge_id}_{i}" for i in range(n_lanes)]
+        """Cierra o reabre un borde con la convencion de env/incidents.py (E7): se cierran para
+        `passenger` todos los carriles menos el de mas a la izquierda (un borde de 1 carril se
+        cierra por completo). `False` restaura los permisos originales."""
         if on:
-            for ln in lanes:
-                if ln not in self._cache_closed:
-                    self._cache_closed[ln] = list(self.conn.lane.getDisallowed(ln))
-                self.conn.lane.setDisallowed(ln, sorted(set(self._cache_closed[ln]) | {"passenger"}))
+            if edge_id in self._saved_incidents:
+                return
+            lanes = incident_lanes(self.conn, {"edge": edge_id})
+            self._saved_incidents[edge_id] = close_lanes(self.conn, lanes)
             self._reroute_affected(edge_id)
-        else:
-            for ln in lanes:
-                if ln in self._cache_closed:
-                    self.conn.lane.setDisallowed(ln, self._cache_closed.pop(ln))
+        elif edge_id in self._saved_incidents:
+            open_lanes(self.conn, self._saved_incidents.pop(edge_id))
 
     def _reroute_affected(self, edge_id: str) -> None:
         """Los vehiculos cuya ruta pendiente pasa por el borde cerrado buscan otro camino (si existe)."""
@@ -259,15 +260,14 @@ class SimManager:
         sc = get_scenario(scenario_name)
         if not Path(sc.net_file).exists():
             raise ValueError(f"la red de {scenario_name} no existe todavia: {sc.net_file}")
-        rl_policy, info = load_rl_policy(policy_spec)
+        rl_policy, info = load_rl_policy(policy_spec, sc)
         net = read_net(sc.net_file)
         book = RouteBook(net)
-        use_gen = bool(sc.profile) and make_generator(sc.net_file, sc.profile, seed) is not None
+        gen = make_generator(sc, sc.profile, seed)  # UN generador para las dos sims
         schedule = []
-        if not use_gen:
-            horizon = sc.num_seconds
-            schedule = load_schedule(_route_for(sc, seed), book, seed, horizon)
-        shared = SharedDemand(sc.name, sc.net_file, seed, sc.profile, schedule, use_gen)
+        if gen is None:
+            schedule = load_schedule(_route_for(sc, seed), book, seed, sc.num_seconds)
+        shared = SharedDemand(sc.name, sc.net_file, seed, sc.profile, schedule, gen is not None, gen=gen)
         if self.profile:  # se conserva la hora del dia elegida al reiniciar
             shared.set_profile(self.profile)
         new = {}
@@ -323,10 +323,14 @@ class SimManager:
             raise ValueError("la simulacion aun no esta lista")
         t = self.sims["fijo"].t
         if name == "inject":
-            edges = self._book.farthest_route(str(cmd["edge"]))
+            edge = self._book.edge(str(cmd["edge"])).getID()
             n = max(1, min(int(cmd.get("n", 10)), 200))
+            if self.shared.can_inject_with_gen(edge):  # DemandGenerator.inject: ruta mas probable por ese borde
+                self.shared.queue_gen_injection(t, edge, n)
+                return {"vehicles": n, "edge": edge, "t": t}
+            edges = self._book.farthest_route(edge)  # borde fuera de las rutas del generador (o toy_*)
             ids = self.shared.inject(t, edges, n)
-            return {"vehicles": len(ids), "route": list(edges), "t": t}
+            return {"vehicles": len(ids), "edge": edge, "route": list(edges), "t": t}
         if name == "time_of_day":
             prof = str(cmd.get("profile", ""))
             if prof not in PROFILE_NAMES:
@@ -334,7 +338,7 @@ class SimManager:
             self.shared.set_profile(prof)
             self.profile = prof
             self._dirty = True
-            return {"profile": prof, "scale": self.shared.scale}
+            return {"profile": prof, "scale": self.shared.scale, "demand": self.shared.rates()}
         if name == "incident":
             edge = self._book.edge(str(cmd["edge"])).getID()
             on = bool(cmd.get("on", True))
@@ -362,6 +366,11 @@ class SimManager:
     def _state(self) -> dict:
         sims = {k: s.snapshot() for k, s in self.sims.items()}
         wf, wr = sims["fijo"]["metrics"]["mean_wait"], sims["rl"]["metrics"]["mean_wait"]
+        rates = self.shared.rates()
+        info = dict(self.policy_info)
+        err = self.sims["rl"].policy_error
+        if err:
+            info["warning"] = f"la politica fallo ({err}); se mantiene la fase actual"
         return {
             "type": "state",
             "t": self.sims["fijo"].t,
@@ -369,8 +378,9 @@ class SimManager:
             "improvement_pct": round((wf - wr) / wf * 100.0, 1) if wf > 1e-6 else 0.0,
             "speed": self.speed,
             "scenario": self.scenario_name,
-            "policy": self.policy_info,
-            "profile": self.profile,
+            "policy": info,
+            "profile": self.shared.profile if self.shared else self.profile,
+            "demand_veh_h": round(rates["veh_h"]) if rates else None,
             "incidents": sorted(self.incidents),
             "episode": self.episode,
         }
@@ -406,6 +416,8 @@ class SimManager:
                     self._credit = 0.0 if n >= MAX_STEPS_PER_TICK else self._credit - n
                     n_stepped = n
                     for _ in range(n):
+                        if self.shared.gen is not None:
+                            self.shared.pre_step(self.sims["fijo"].t, [s.conn for s in self.sims.values()])
                         for s in self.sims.values():  # lock-step: ambos avanzan el mismo segundo
                             s.step()
                         if self.sims["fijo"].t >= self.horizon:

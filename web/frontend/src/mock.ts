@@ -1,6 +1,6 @@
 // Backend falso: red tipo corredor (4 semaforos) + vehiculos + metricas, para
 // desarrollar y demostrar la UI sin FastAPI. Imita el contrato de docs/ARCHITECTURE.md §8.
-import type { Backend, Command, Network, SimKey, SimState, TickMessage, Vehicle } from "./types";
+import type { Backend, Command, SimKey, SimState, TickMessage, Vehicle } from "./types";
 
 interface MEdge { id: string; x0: number; y0: number; x1: number; y1: number; len: number; next?: string; to?: string; dir: "EW" | "NS"; }
 
@@ -37,20 +37,21 @@ const EDGE = new Map(EDGES.map((e) => [e.id, e]));
 const ENTRIES = EDGES.filter((e) => e.id === "EB0" || e.id === `WB${XS.length}` || /^(SN|NS)/.test(e.id));
 const TLS_LANES = XS.map((_, i) => [`EB${i}`, `WB${i + 1}`, `SN${i}`, `NS${i}`]);
 
-export function mockNetworkGeoJSON() {
-  const features: unknown[] = EDGES.map((e) => ({
-    type: "Feature",
-    properties: { id: e.id, edge: e.id },
-    geometry: { type: "LineString", coordinates: [[e.x0, e.y0], [e.x1, e.y1]] },
+// Red del mock en el mismo formato que GET /api/network del backend real.
+export function mockNetwork() {
+  const lanes = EDGES.map((e) => ({ id: `${e.id}_0`, edge: e.id, shape: [[e.x0, e.y0], [e.x1, e.y1]], width: 3.2 }));
+  const tls = XS.map((x, i) => ({
+    id: `J${i}`,
+    name: `Cruce ${i + 1}`,
+    x,
+    y: 0,
+    links: TLS_LANES[i].map((id, k) => {
+      const e = EDGE.get(id)!;
+      return [k, `${id}_0`, e.x1, e.y1];
+    }),
   }));
-  XS.forEach((x, i) => features.push({
-    type: "Feature",
-    properties: { tls: `J${i}`, lanes: TLS_LANES[i] },
-    geometry: { type: "Point", coordinates: [x, 0] },
-  }));
-  return { type: "FeatureCollection", features };
+  return { scenario: "mock", bbox: [BX0, -CY, BX1, CY], lanes, junctions: [], tls };
 }
-export type { Network };
 
 // RNG determinista: ambas sims reciben la misma demanda (como en el backend real).
 function mulberry32(a: number) {
@@ -186,6 +187,8 @@ export class MockBackend implements Backend {
       sims: { fijo: f, rl: r },
       improvement_pct: a > 0.5 ? ((a - b) / a) * 100 : 0,
       incidents: [...this.closed],
+      profile: this.profile,
+      speed: this.speed,
     });
   }
 

@@ -3,6 +3,8 @@ import Controls from "./Controls";
 import Kpis from "./Kpis";
 import LineChart from "./LineChart";
 import NetCanvas, { type Mode, type View } from "./NetCanvas";
+import Toasts from "./Toasts";
+import { policyValue } from "./network";
 import { useBackend } from "./useBackend";
 
 const BANNERS = {
@@ -13,7 +15,8 @@ const BANNERS = {
 } as const;
 
 export default function App() {
-  const { status, network, scenarios, policies, msg, history, closed, send } = useBackend();
+  const { status, network, scenarios, currentScenario, policies, msg, history, closed, send, feed, toasts, dismissToast, loadPolicies } =
+    useBackend();
   const [mode, setMode] = useState<Mode>("ver");
   const [n, setN] = useState(10);
   const [profile, setProfile] = useState<"pico" | "mediodia" | "noche">("pico");
@@ -22,8 +25,18 @@ export default function App() {
   const [policy, setPolicy] = useState("");
   const [view, setView] = useState<View>({ k: 1, dx: 0, dy: 0 }); // compartida: los dos mapas se mueven juntos
 
-  useEffect(() => { if (!scenario && scenarios.length) setScenario(scenarios[0].value); }, [scenarios, scenario]);
+  // El servidor manda: los controles siguen su escenario, politica, hora del dia y velocidad.
+  const srv = msg?.scenario ?? currentScenario ?? "";
+  useEffect(() => { if (srv) setScenario(srv); }, [srv]);
+  useEffect(() => { if (!scenario && scenarios.length) setScenario((scenarios.find((o) => !o.disabled) ?? scenarios[0]).value); }, [scenarios, scenario]);
+  useEffect(() => { if (scenario && status === "live") loadPolicies(scenario); }, [scenario, status, loadPolicies]);
+  const srvPolicy = msg?.policy ? policyValue(msg.policy.algo, msg.policy.run) : "";
+  useEffect(() => { if (srvPolicy) setPolicy(srvPolicy); }, [srvPolicy]);
   useEffect(() => { if (!policy && policies.length) setPolicy(policies[0].value); }, [policies, policy]);
+  const srvProfile = msg?.profile ?? "";
+  useEffect(() => { if (srvProfile === "pico" || srvProfile === "mediodia" || srvProfile === "noche") setProfile(srvProfile); }, [srvProfile]);
+  const srvSpeed = msg?.speed;
+  useEffect(() => { if (srvSpeed === 0 || srvSpeed === 1 || srvSpeed === 5 || srvSpeed === 20) setSpeed(srvSpeed); }, [srvSpeed]);
 
   const onLane = (edge: string) => {
     if (mode === "inyectar") send({ cmd: "inject", edge, n });
@@ -31,6 +44,7 @@ export default function App() {
   };
 
   const f = msg?.sims.fijo, r = msg?.sims.rl;
+  const warning = msg?.policy?.warning;
   let improvement: number | null = msg?.improvement_pct ?? null;
   if (improvement === null && f && r && f.metrics.mean_wait > 0.5)
     improvement = ((f.metrics.mean_wait - r.metrics.mean_wait) / f.metrics.mean_wait) * 100;
@@ -38,14 +52,15 @@ export default function App() {
   return (
     <div className="app">
       {BANNERS[status] && <div className={`banner ${status}`}>{BANNERS[status]}</div>}
+      {warning && <div className="banner warn">{warning}</div>}
       <Kpis fijo={f?.metrics} rl={r?.metrics} improvement={improvement} t={msg?.t ?? 0} />
       <main className="main">
         <div className="maps">
           {network ? (
             <>
-              <NetCanvas title="Semáforo fijo" accent="#ff9f43" net={network} sim={f} closed={closed}
+              <NetCanvas title="Semáforo fijo" accent="#ff9f43" simKey="fijo" net={network} feed={feed} closed={closed}
                 mode={mode} view={view} onView={setView} onLane={onLane} />
-              <NetCanvas title="Agente RL" accent="#2ee6a6" net={network} sim={r} closed={closed}
+              <NetCanvas title={`Agente RL${msg?.policy?.label ? ` · ${msg.policy.label}` : ""}`} accent="#2ee6a6" simKey="rl" net={network} feed={feed} closed={closed}
                 mode={mode} view={view} onView={setView} onLane={onLane} />
             </>
           ) : (
@@ -55,12 +70,13 @@ export default function App() {
         <Controls mode={mode} setMode={setMode} n={n} setN={setN} profile={profile} setProfile={setProfile}
           speed={speed} setSpeed={setSpeed} scenarios={scenarios} policies={policies}
           scenario={scenario} setScenario={setScenario} policy={policy} setPolicy={setPolicy}
-          closedCount={closed.size} send={send} />
+          closedCount={closed.size} demand={msg?.demand_veh_h ?? null} send={send} />
       </main>
       <footer className="charts">
         <LineChart title="Espera promedio" unit="s" field="wait" fijo={history.fijo} rl={history.rl} />
         <LineChart title="Cola" unit="vehículos detenidos" field="queue" fijo={history.fijo} rl={history.rl} />
       </footer>
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
