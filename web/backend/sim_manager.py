@@ -383,6 +383,10 @@ class SimManager:
             "profile": self.shared.profile if self.shared else self.profile,
             "demand_veh_h": round(rates["veh_h"]) if rates else None,
             "incidents": sorted(self.incidents),
+            # carriles cerrados de verdad (convencion de env/incidents.py): el frontend dibuja ahi los conos
+            "closed_lanes": sorted(
+                {ln for saved in self.sims["fijo"]._saved_incidents.values() for ln in saved}
+            ),
             "episode": self.episode,
         }
 

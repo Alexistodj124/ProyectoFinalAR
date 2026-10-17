@@ -1,4 +1,4 @@
-import type { Controlled, Junction, Lane, Network, Option, TlsInfo } from "./types";
+import type { Controlled, EdgeInfo, Junction, Lane, Network, Option, TlsInfo } from "./types";
 
 type Props = Record<string, unknown>;
 type Pt = [number, number];
@@ -14,7 +14,7 @@ export function edgeOfLane(laneId: string): string {
 
 // Formato de GET /api/network (web/backend/geometry.py):
 //   {scenario, bbox:[minx,miny,maxx,maxy], lanes:[{id,edge,shape,width}], junctions:[{id,shape}],
-//    tls:[{id,name,x,y,links:[[indiceEnElEstado, carril, x, y], ...]}]}
+//    edges:[{id,name,from,to}], tls:[{id,name,x,y,links:[[indiceEnElEstado, carril, x, y, dir?, carrilSalida?], ...]}]}
 export function parseNetwork(raw: unknown): Network {
   const r = (raw ?? {}) as Props;
   const lanes: Lane[] = [];
@@ -23,6 +23,11 @@ export function parseNetwork(raw: unknown): Network {
     const shape = pts(l.shape);
     if (!id || shape.length < 2) continue;
     lanes.push({ id, edge: str(l.edge) ?? edgeOfLane(id), shape, width: num(l.width, 3.2) });
+  }
+  const edges: EdgeInfo[] = [];
+  for (const e of (Array.isArray(r.edges) ? r.edges : []) as Props[]) {
+    const id = str(e.id);
+    if (id) edges.push({ id, name: str(e.name) ?? id, from: str(e.from) ?? "", to: str(e.to) ?? "" });
   }
   const junctions: Junction[] = [];
   for (const j of (Array.isArray(r.junctions) ? r.junctions : []) as Props[]) {
@@ -38,8 +43,9 @@ export function parseNetwork(raw: unknown): Network {
     for (const lk of (Array.isArray(t.links) ? t.links : []) as unknown[][]) {
       const lane = str(lk[1]);
       if (!lane) continue;
-      const c = byLane.get(lane) ?? { lane, idx: [], x: num(lk[2]), y: num(lk[3]) };
+      const c = byLane.get(lane) ?? { lane, idx: [], dirs: [], x: num(lk[2]), y: num(lk[3]) };
       c.idx.push(num(lk[0]));
+      c.dirs.push(str(lk[4]) ?? "s");
       byLane.set(lane, c);
     }
     tls.push({ id, name: str(t.name) ?? id, x: num(t.x), y: num(t.y), controlled: [...byLane.values()] });
@@ -55,7 +61,7 @@ export function parseNetwork(raw: unknown): Network {
     }
   }
   if (!isFinite(minX)) { minX = minY = 0; maxX = maxY = 1; }
-  return { scenario: str(r.scenario), lanes, junctions, tls, bbox: { minX, minY, maxX, maxY } };
+  return { scenario: str(r.scenario), lanes, edges, junctions, tls, bbox: { minX, minY, maxX, maxY } };
 }
 
 // GET /api/scenarios -> {current, scenarios:[{name, description, available, net_available, ...}]}

@@ -196,8 +196,10 @@ def test_incident_toggles_lane_permissions(client, ws):
         assert flags == [True] * (len(flags) - 1) + [False]
     s = recv_state(ws, lambda s: edge in s["incidents"], limit=100)
     assert s["incidents"] == [edge]
+    assert s["closed_lanes"] == sorted(k for k, d in closed["fijo"].items() if "passenger" in d)
     assert send(ws, cmd="incident", edge=edge, on=False)["ok"]
     assert all(not d for lanes in mgr.call(perms).values() for d in lanes.values())
+    assert recv_state(ws, lambda s: not s["incidents"], limit=100)["closed_lanes"] == []
     assert not send(ws, cmd="incident", edge="no_existe", on=True)["ok"]
 
 
@@ -336,7 +338,10 @@ def test_reforma_network_format():
     for t in net["tls"]:
         idx = [lk[0] for lk in t["links"]]
         assert idx == sorted(idx) and idx[0] == 0
-        assert all(lk[1] in lane_ids and len(lk) == 4 for lk in t["links"])
+        assert all(lk[1] in lane_ids and lk[5] in lane_ids and len(lk) == 6 for lk in t["links"])
+        assert {lk[4] for lk in t["links"]} <= {"s", "l", "r", "t", "L", "R"}
+    c12 = {lk[1]: lk[4] for t in net["tls"] if t["id"] == "C12" for lk in t["links"]}
+    assert "s" in c12.values() and ({"l", "L"} | {"r", "R"}) & set(c12.values())
 
 
 def test_policies_list_nested_runs_and_compatibility(tmp_path, monkeypatch):
