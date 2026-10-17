@@ -1,0 +1,9 @@
+# E1: ¿qué tan bueno es lo actual? Líneas base entre sí (PLAN §8.2).
+# python -m experiments.evaluate --config experiments/configs/E1/baselines.yaml
+exp: E1
+name: baselines
+methods: [fixed, actuated, max_pressure]
+scenarios: [reforma_pico, reforma_mediodia, reforma_pico_x13, cruce_pico]
+seeds: eval          # EVAL_SEEDS = 1000..1009 (o una lista de enteros)
+num_seconds: 3600
+out: runs/E1/baselines/eval.csv   # el resumen queda en eval_summary.csv
