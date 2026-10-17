@@ -47,7 +47,7 @@ from env.scenarios import get_scenario
 from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
 
 DEFAULTS = dict(
-    lr=5e-4,
+    lr=1e-4,  # 5e-4 with hard copies every 500 steps was unstable on the calibrated corridor
     gamma=0.99,
     hidden=[128, 128],
     buffer_size=50_000,
@@ -55,18 +55,19 @@ DEFAULTS = dict(
     learning_starts=1_000,  # env steps before the first update
     train_freq=1,
     target_update_interval=500,  # hard copy every N env steps (used when tau == 1)
-    tau=1.0,  # < 1 => Polyak averaging every step instead
+    tau=0.005,  # Polyak averaging every training step; 1.0 => hard copy every target_update_interval
     eps_start=1.0,
     eps_end=0.05,
     eps_fraction=0.3,  # fraction of the total env steps used to decay epsilon
     grad_clip=10.0,
-    reward="local",  # local: r_i of the own intersection | team: sum_i r_i to everyone
-    reward_scale=0.1,
+    reward="team",  # team: sum_i r_i to everyone (cooperative IQL) | local: r_i of the own intersection
+    reward_scale=0.02,  # team reward = sum of 5 intersections: 0.02 keeps it on the 0.1-per-agent scale
     reward_norm=False,
     neighbor_obs=False,  # append neighbors' per-lane queues (communication v1)
     shared_params=False,  # one network for all agents (+ agent id) instead of one per agent
     device="auto",
     save_every=10,
+    reward_fn="diff-waiting-time-pending",  # training reward (agents/rewards.py); "scenario" = plain sumo-rl
 )
 
 

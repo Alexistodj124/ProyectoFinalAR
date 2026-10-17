@@ -4,10 +4,12 @@ algo: mappo
 name: mappo
 scenario: reforma_pico
 seed: 0
-total_episodes: 100
+total_episodes: 200   # 200 x 720 = 144 000 decisiones por agente (igual en E5 y E6)
 num_seconds: 3600
 hparams:
+  reward_fn: diff-waiting-time-pending   # entrenamiento: espera + backlog de insercion (agents/rewards.py)
   lr: 5.0e-4
+  anneal_lr: true        # lr lineal -> 0; con lr constante empeoraba despues de ~100 episodios
   gamma: 0.99
   gae_lambda: 0.95
   clip_coef: 0.2

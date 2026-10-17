@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from agents.base import Policy
+from agents.rewards import DEFAULT_TRAIN_REWARD, train_env_kwargs
 from agents.tabular.discretize import DEFAULT_THRESHOLDS, Discretizer
 from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
 
@@ -20,8 +21,13 @@ DEFAULT_HP = dict(
     eps_schedule="linear",  # "linear" | "exp"
     eps_decay_frac=0.7,  # fraction of total_episodes over which epsilon decays
     q_init=0.0,
-    thresholds=list(DEFAULT_THRESHOLDS),
-    agg="mean",
+    # 4 queue levels (adds "lleno" >= 0.8) and the WORST lane of each approach: with the
+    # (0.15, 0.45) / mean state a full lane looked like any other "alta" approach and the
+    # agent let it spill out of the network (docs/ajuste_aprendizaje.md). 3 x 2 x 4^3 = 384
+    # states on the cruce.
+    thresholds=[0.15, 0.45, 0.8],
+    agg="max",
+    reward_fn=DEFAULT_TRAIN_REWARD,  # training reward: diff-waiting-time + insertion backlog (agents/rewards.py)
 )
 
 
@@ -89,7 +95,7 @@ def train_loop(cfg: dict, make_agent, algo: str) -> str:
     set_seed(seed)
     rng = np.random.default_rng(seed)
 
-    env = make_parallel_env(cfg["scenario"], seed, num_seconds=cfg.get("num_seconds"))
+    env = make_parallel_env(cfg["scenario"], seed, num_seconds=cfg.get("num_seconds"), **train_env_kwargs(hp))
     logger = TrainLogger(run_dir)
     agent, env_steps, save_every = None, 0, int(cfg.get("save_every", 10))
     try:

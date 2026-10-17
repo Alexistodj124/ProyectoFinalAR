@@ -23,9 +23,10 @@ import numpy as np
 import yaml
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from agents.base import Policy
+from agents.rewards import DEFAULT_TRAIN_REWARD, train_env_kwargs
 from env.reforma_env import make_gym_env
 from env.scenarios import get_scenario
 from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
@@ -42,7 +43,9 @@ DEFAULTS = dict(
     learning_rate=3e-4,
     max_grad_norm=0.5,
     net_arch=[64, 64],
+    norm_reward=True,  # VecNormalize(norm_reward): divide r by a running std of the discounted return
     device="cpu",  # SB3 recommends CPU for small MLP policies; "auto"/"cuda" also work
+    reward_fn=DEFAULT_TRAIN_REWARD,  # training reward: diff-waiting-time + insertion backlog (agents/rewards.py)
 )
 
 
@@ -76,7 +79,9 @@ class EpisodeLogCallback(BaseCallback):
         self.n = 0
 
     def _on_step(self) -> bool:
-        reward = float(self.locals["rewards"][0])
+        env = self.training_env
+        # with VecNormalize the rollout holds normalized rewards: log the original ones
+        reward = float(env.get_original_reward()[0] if isinstance(env, VecNormalize) else self.locals["rewards"][0])
         info = self.locals["infos"][0]
         self.ep_return += reward
         self.wait_sum += float(info.get("system_mean_waiting_time", 0.0))
@@ -111,7 +116,12 @@ def train(cfg: dict) -> str:
     n_steps = int(hp["n_steps"] or steps_per_ep)
     batch_size = min(int(hp["batch_size"]), n_steps)
 
-    env = DummyVecEnv([lambda: EpisodeSeedWrapper(make_gym_env(sc, seed, num_seconds=num_seconds), seed)])
+    env = DummyVecEnv([lambda: EpisodeSeedWrapper(make_gym_env(sc, seed, num_seconds=num_seconds, **train_env_kwargs(hp)), seed)])
+    if hp["norm_reward"]:
+        # diff-waiting-time (+ insertion backlog) is large and heavy-tailed (|r| from ~0.1 to >50
+        # per step); unscaled, the value loss dominates and PPO barely moves the policy.
+        # Only rewards are normalized (obs are already in [0, 1]), so the saved policy needs no stats.
+        env = VecNormalize(env, norm_obs=False, norm_reward=True, gamma=hp["gamma"])
     model = PPO(
         "MlpPolicy",
         env,

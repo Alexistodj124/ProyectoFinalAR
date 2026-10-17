@@ -53,7 +53,7 @@ from env.scenarios import get_scenario
 from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
 
 DEFAULTS = dict(
-    lr=5e-4,
+    lr=1e-4,  # 5e-4 + hard target every 500 steps diverged (docs/ajuste_aprendizaje.md)
     gamma=0.99,
     hidden=[128, 128],
     mixer="qmix",  # qmix | vdn | none
@@ -65,16 +65,18 @@ DEFAULTS = dict(
     learning_starts=1_000,
     train_freq=1,
     target_update_interval=500,  # hard update every N env steps (when tau == 1)
-    tau=1.0,  # < 1 => soft (Polyak) update every training step
+    tau=0.005,  # soft (Polyak) update every training step; 1.0 => hard copy every target_update_interval
     eps_start=1.0,
     eps_end=0.05,
     eps_fraction=0.3,
     grad_clip=10.0,
+    loss="huber",  # huber (as DQN/IDQN) | mse (original QMIX); team rewards are heavy-tailed
     reward="team",  # only used by mixer=none: local | team
-    reward_scale=0.1,
+    reward_scale=0.02,  # team reward = sum over the 5 intersections
     reward_norm=False,
     device="auto",
     save_every=10,
+    reward_fn="diff-waiting-time-pending",  # training reward (agents/rewards.py); "scenario" = plain sumo-rl
 )
 
 
@@ -188,6 +190,8 @@ def train_joint(cfg: dict, algo: str, defaults: dict, make_agent: Callable[[Mult
     scaler = RewardScaler(h["reward_scale"], h["reward_norm"], h["gamma"])
     use_team = mixer is not None or h["reward"] == "team"
 
+    td_loss = F.smooth_l1_loss if h["loss"] == "huber" else F.mse_loss
+
     def update() -> float:
         o, s, a, r, o2, s2, d = replay.sample(h["batch_size"], device)
         q_taken = agent(o).gather(-1, a[..., None]).squeeze(-1)  # Q_i(o_i, a_i): [B, n]
@@ -199,11 +203,11 @@ def train_joint(cfg: dict, algo: str, defaults: dict, make_agent: Callable[[Mult
             q_tot = mixer(q_taken, s)
             with torch.no_grad():
                 y = r.sum(-1) + h["gamma"] * (1.0 - d) * mixer_tgt(q_next, s2)  # team TD target
-            loss = F.mse_loss(q_tot, y)
+            loss = td_loss(q_tot, y)
         else:  # independent TD losses (still a joint batch, so comm gradients flow)
             rr = r.sum(-1, keepdim=True).expand_as(r) if use_team else r
             y = rr + h["gamma"] * (1.0 - d[:, None]) * q_next
-            loss = F.mse_loss(q_taken, y)
+            loss = td_loss(q_taken, y)
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(params, h["grad_clip"])

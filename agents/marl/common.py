@@ -27,6 +27,7 @@ import numpy as np
 import torch
 
 from agents.base import Policy
+from agents.rewards import train_env_kwargs
 from env.scenarios import get_scenario, get_topology
 
 NEG_INF = -1e9  # logit / Q value given to masked actions
@@ -272,7 +273,7 @@ def make_env_and_spec(cfg: dict, seed: int):
     from env.reforma_env import make_parallel_env
 
     sc = get_scenario(cfg["scenario"])
-    penv = make_parallel_env(sc, seed=seed, num_seconds=cfg.get("num_seconds"))
+    penv = make_parallel_env(sc, seed=seed, num_seconds=cfg.get("num_seconds"), **train_env_kwargs(cfg.get("hparams")))
     spec = MultiAgentSpec.from_env(penv, sc.net_file)
     return penv, spec
 

@@ -3,7 +3,7 @@ algo: dyna_q
 name: dyna_q_n10
 scenario: cruce_pico
 seed: 0
-total_episodes: 100
+total_episodes: 200   # 200 x 720 = 144 000 pasos de entorno (docs/ajuste_aprendizaje.md)
 num_seconds: 3600
 eval:
   scenarios:
@@ -12,6 +12,9 @@ eval:
   every_episodes: 10
   episodes: 3
 hparams:
+  reward_fn: diff-waiting-time-pending   # entrenamiento: espera + backlog de insercion (agents/rewards.py)
+  thresholds: [0.15, 0.45, 0.8]   # 4 niveles de cola (bajo, medio, alto, lleno)
+  agg: max                         # peor carril de cada aproximacion
   alpha: 0.1
   gamma: 0.99
   eps_start: 1.0

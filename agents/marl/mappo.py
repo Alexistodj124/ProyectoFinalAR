@@ -43,10 +43,12 @@ from agents.marl.common import (
     mlp,
     save_checkpoint,
 )
+from env.scenarios import get_scenario
 from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
 
 DEFAULTS = dict(
     lr=5e-4,
+    anneal_lr=True,  # linear decay lr -> 0 over the run (CleanRL default); constant lr degraded late in training
     gamma=0.99,
     gae_lambda=0.95,
     clip_coef=0.2,
@@ -66,6 +68,7 @@ DEFAULTS = dict(
     reward_norm=False,
     device="auto",
     save_every=10,
+    reward_fn="diff-waiting-time-pending",  # training reward (agents/rewards.py); "scenario" = plain sumo-rl
 )
 
 
@@ -134,6 +137,8 @@ def train(cfg: dict) -> str:
     scaler = RewardScaler(h["reward_scale"], h["reward_norm"], h["gamma"])
     vnorm = ValueNorm() if h["value_norm"] else None
     T_max = h["n_steps"]
+    sc = get_scenario(cfg["scenario"])
+    total_steps = int(cfg["total_episodes"]) * int((cfg.get("num_seconds") or sc.num_seconds) // sc.delta_time)
 
     def value(s_t: torch.Tensor) -> np.ndarray:
         v = critic(s_t).cpu().numpy()
@@ -225,6 +230,9 @@ def train(cfg: dict) -> str:
             if done or (T_max and len(buf["r"]) >= T_max):
                 with torch.no_grad():
                     last_v = 0.0 if term else float(value(torch.as_tensor(s, device=device)[None])[0])
+                if h["anneal_lr"]:
+                    for g in opt.param_groups:
+                        g["lr"] = h["lr"] * max(1.0 - (global_step - len(buf["r"])) / total_steps, 0.0)
                 upd.append(update(buf, last_v))
                 buf = new_buf()
 
