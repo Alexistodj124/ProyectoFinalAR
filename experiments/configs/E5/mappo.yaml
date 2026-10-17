@@ -1,0 +1,30 @@
+# E5: MAPPO (actor compartido + crítico centralizado V(s)).
+exp: E5
+algo: mappo
+name: mappo
+scenario: reforma_pico
+seed: 0
+total_episodes: 100
+num_seconds: 3600
+hparams:
+  lr: 5.0e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_coef: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  update_epochs: 5
+  num_minibatches: 4
+  n_steps: 240           # 3 actualizaciones por episodio de 720 decisiones
+  max_grad_norm: 10.0
+  norm_adv: true
+  clip_vloss: true
+  value_norm: true
+  hidden: [128, 128]
+  critic_hidden: [256, 256]
+  state_queues: true
+  reward_scale: 0.1
+  reward_norm: false
+  device: auto
+  save_every: 10
+eval: {scenarios: [reforma_pico, reforma_mediodia, reforma_pico_x13], every_episodes: 10, episodes: 3}
