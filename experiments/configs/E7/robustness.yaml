@@ -1,7 +1,7 @@
 # E7 - Generalización: el mejor agente de cada familia contra las 3 líneas base en
 #   * mediodia   : hora no vista (el agente entrenó en pico)
 #   * pico_x13   : demanda +30 %
-#   * pico_incident : hora pico con un carril cerrado entre `start` y `end` (segundos)
+#   * pico_incident : hora pico con 2 de 3 carriles de paso cerrados entre `start` y `end` (segundos)
 # "pico" se evalúa también como referencia (sin perturbación) para medir la degradación.
 exp: E7
 variants: [pico, mediodia, pico_x13, pico_incident]
@@ -9,11 +9,15 @@ num_seconds: null          # null = el del escenario (3600 s)
 eval_seeds: 10             # primeras N de EVAL_SEEDS (1000..1009)
 
 incident:
-  # Choque en Reforma hacia el norte entre 12 calle y 10a calle (deja abierto solo el carril
-  # izquierdo, ver env/incidents.py). Con null se elige sola la primera arista entre dos semáforos.
-  edge: NB_C12_C10
-  start: 900
-  end: 2100
+  # Un incidente por base (también se acepta un único dict {edge, start, end} para ambas).
+  # Se cierran todos los carriles de paso menos uno sin cortar ningún movimiento (env/incidents.py).
+  # reforma: choque en Reforma hacia el norte entre 12 calle y 10a calle: cierra los carriles 0 y 1
+  #   de NB_C12_C10 y deja abiertos el carril 2 y la bahía de giro a la izquierda.
+  reforma: {edge: NB_C12_C10, start: 900, end: 2100}
+  # cruce: la red del cruce tiene un solo semáforo (C12) y NB_C12_C10 es su arista de SALIDA (sin
+  #   conexiones aguas abajo): cerrarla bloqueaba todo el tráfico hacia el norte. Se usa la aproximación
+  #   NB_C14_C12: se cierran los carriles 1 y 2 y queda abierto el carril 0 (paso + giro a la derecha).
+  cruce: {edge: NB_C14_C12, start: 900, end: 2100}
 
 baselines: [fixed, actuated, max_pressure]
 

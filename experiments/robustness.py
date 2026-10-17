@@ -9,6 +9,12 @@ E7:  python -m experiments.robustness --config experiments/configs/E7/robustness
                                  over training seeds (per-seed mean over the EVAL_SEEDS episodes)
        select: first          -> the first seed found
      Every run is loaded from experiments.common.policy_dir(run_dir) (best/ checkpoint if any).
+     `incident` is either one dict ({edge, start, end}) for every base or one dict per base
+     ({cruce: {...}, reforma: {...}}). Partial re-runs: --bases/--methods/--variants filter what is
+     evaluated and --merge-into CSV replaces only those (method, base, variant) rows of an
+     existing CSV (and rewrites its _summary.csv), e.g.
+       python -m experiments.robustness --config experiments/configs/E7/robustness.yaml \
+         --bases cruce --variants pico_incident --merge-into runs/E7/robustness.csv
 E8:  python -m experiments.robustness --fairness --config experiments/configs/E8/fairness.yaml
      Concatenates the eval CSVs listed in the config into runs/E8/fairness.csv.
 """
@@ -115,9 +121,19 @@ def default_incident_edge(net_file: str) -> str:
     return sorted(pool, key=lambda e: (-e.getLength(), e.getID()))[0].getID()
 
 
-def resolve_incident(inc: dict | None, scenario: str) -> dict:
+def is_per_base(inc: dict | None) -> bool:
+    """{cruce: {...}, reforma: {...}} (one incident per base) vs {edge|lane, start, end}."""
+    return bool(inc) and "edge" not in inc and "lane" not in inc and all(isinstance(v, dict) for v in inc.values())
+
+
+def resolve_incident(inc: dict | None, scenario: str, base: str | None = None) -> dict:
     from env.scenarios import get_scenario
 
+    if is_per_base(inc):
+        base = base or scenario.split("_", 1)[0]
+        if base not in inc:
+            raise ValueError(f"incident has no entry for base {base!r} (has {sorted(inc)})")
+        inc = inc[base]
     inc = dict(inc or {})
     if not inc.get("edge") and not inc.get("lane"):
         inc["edge"] = default_incident_edge(get_scenario(scenario).net_file)
@@ -134,19 +150,22 @@ def parse_variant(variant: str, base: str) -> tuple[str, bool]:
 
 
 # ------------------------------------------------------------------ E7
-def run_robustness(cfg: dict, runs_dir: Path, out: Path, *, num_seconds=None, eval_seeds=None) -> pd.DataFrame:
+def run_robustness(cfg: dict, runs_dir: Path, out: Path, *, num_seconds=None, eval_seeds=None,
+                   bases=None, methods_filter=None, variants=None) -> pd.DataFrame:
     from agents import registry
     from env.scenarios import EVAL_SEEDS
     from experiments.evaluate import evaluate  # built by feat/baselines-eval
 
     num_seconds = num_seconds or cfg.get("num_seconds")
     seeds = EVAL_SEEDS[: eval_seeds or cfg.get("eval_seeds") or len(EVAL_SEEDS)]
-    variants = cfg.get("variants") or ["pico", "mediodia", "pico_x13", "pico_incident"]
+    variants = variants or cfg.get("variants") or ["pico", "mediodia", "pico_x13", "pico_incident"]
 
     # (label, algo, run_dir | None, base, selection)
     methods: list[tuple[str, str, str | None, str, str]] = []
     for spec in cfg.get("learned", []):
         label = spec.get("label", spec["algo"])
+        if (bases and spec["base"] not in bases) or (methods_filter and label not in methods_filter):
+            continue
         rds = select_runs(spec, runs_dir)
         if not rds:
             print(f"[E7] no finished run for {label} ({spec.get('from')}); skipped")
@@ -155,8 +174,11 @@ def run_robustness(cfg: dict, runs_dir: Path, out: Path, *, num_seconds=None, ev
         for rd in rds:
             print(f"[E7] {label} ({mode}) -> {rd} (loads {policy_dir(rd).name})")
             methods.append((label, spec["algo"], str(rd), spec["base"], mode))
+    all_bases = {s["base"] for s in cfg.get("learned", [])} or {cfg.get("default_base", "cruce")}
     for bs in cfg.get("baselines", ["fixed", "actuated", "max_pressure"]):
-        for base in sorted({m[3] for m in methods} or {cfg.get("default_base", "cruce")}):
+        if methods_filter and bs not in methods_filter:
+            continue
+        for base in sorted(b for b in all_bases if not bases or b in bases):
             methods.append((bs, bs, None, base, "baseline"))
 
     frames, incidents = [], {}
@@ -167,7 +189,7 @@ def run_robustness(cfg: dict, runs_dir: Path, out: Path, *, num_seconds=None, ev
             scenario, with_incident = parse_variant(variant, base)
             inc = None
             if with_incident:
-                inc = incidents.setdefault(base, resolve_incident(cfg.get("incident"), scenario))
+                inc = incidents.setdefault(base, resolve_incident(cfg.get("incident"), scenario, base))
             df = evaluate(policy, scenario, seeds, num_seconds=num_seconds, incident=inc)
             df["method"], df["variant"], df["base"], df["run_dir"] = label, variant, base, rd or ""
             df["incident"] = str(inc) if inc else ""
@@ -181,6 +203,28 @@ def run_robustness(cfg: dict, runs_dir: Path, out: Path, *, num_seconds=None, ev
     df = pd.concat(frames, ignore_index=True)
     summarize_robustness(df).to_csv(out.with_name(out.stem + "_summary.csv"), index=False)
     return df
+
+
+def merge_rows(new: pd.DataFrame, into: Path) -> pd.DataFrame:
+    """Replace the (method, base, variant) groups of `new` inside the CSV `into` (at the same
+    position, same column order); every other row stays untouched. Groups not in the CSV are
+    appended. Rewrites <into>_summary.csv."""
+    old = pd.read_csv(into)
+    new = new.reindex(columns=list(old.columns) + [c for c in new.columns if c not in old.columns])
+    key = lambda d: [tuple(r) for r in d[["method", "base", "variant"]].astype(str).to_numpy()]  # noqa: E731
+    old_k, new_k = key(old), pd.Series(key(new), index=new.index)
+    parts, placed, todo = [], set(), set(new_k)
+    for i, k in enumerate(old_k):
+        if k not in todo:
+            parts.append(old.iloc[[i]])
+        elif k not in placed:
+            parts.append(new[new_k == k])
+            placed.add(k)
+    parts.append(new[~new_k.isin(placed)])
+    merged = pd.concat(parts, ignore_index=True)
+    merged.to_csv(into, index=False)
+    summarize_robustness(merged).to_csv(into.with_name(into.stem + "_summary.csv"), index=False)
+    return merged
 
 
 SUMMARY_METRICS = ["total_delay", "mean_waiting_time", "mean_travel_time", "throughput_veh_h", "max_wait_cross_streets"]
@@ -243,6 +287,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--num-seconds", type=int, default=None)
     p.add_argument("--eval-seeds", type=int, default=None)
     p.add_argument("--no-libsumo", action="store_true")
+    p.add_argument("--bases", nargs="+", default=None, help="E7: only these bases (cruce, reforma)")
+    p.add_argument("--methods", nargs="+", default=None, help="E7: only these method labels")
+    p.add_argument("--variants", nargs="+", default=None, help="E7: only these variants")
+    p.add_argument("--merge-into", default=None,
+                   help="E7: replace the evaluated (method, base, variant) rows of this CSV, keep the rest")
     a = p.parse_args(argv)
     cfg = yaml.safe_load(Path(a.config).read_text())
     runs_dir = Path(a.runs_dir)
@@ -250,8 +299,12 @@ def main(argv: list[str] | None = None) -> int:
         out = Path(a.out or runs_dir / "E8" / "fairness.csv")
         df = collect_fairness(cfg, runs_dir, out)
     else:
-        out = Path(a.out or runs_dir / "E7" / "robustness.csv")
-        df = run_robustness(cfg, runs_dir, out, num_seconds=a.num_seconds, eval_seeds=a.eval_seeds)
+        out = Path(a.out or (runs_dir / "E7" / ("robustness_partial.csv" if a.merge_into else "robustness.csv")))
+        df = run_robustness(cfg, runs_dir, out, num_seconds=a.num_seconds, eval_seeds=a.eval_seeds,
+                            bases=a.bases, methods_filter=a.methods, variants=a.variants)
+        if a.merge_into and len(df):
+            merged = merge_rows(df, Path(a.merge_into))
+            print(f"[E7] merged {len(df)} rows into {a.merge_into} ({len(merged)} rows)")
     print(f"[{cfg.get('exp')}] {len(df)} rows -> {out}")
     return 0
 
