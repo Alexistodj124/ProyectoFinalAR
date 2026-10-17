@@ -1,0 +1,20 @@
+# E4: PPO (Stable-Baselines3), contraste policy-based vs. value-based
+exp: E4
+algo: ppo
+name: ppo
+scenario: cruce_pico
+seed: 0            # train.py lo sobreescribe con --seed
+total_episodes: 100   # 100 x 720 pasos = 72 000 pasos de entorno (igual que DQN)
+num_seconds: 3600
+hparams:
+  n_steps: 720        # un episodio de 3600 s con delta_time 5 s
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  learning_rate: 0.0003
+  net_arch: [64, 64]
+  device: cpu
+eval: {scenarios: [cruce_pico, cruce_mediodia], every_episodes: 10, episodes: 3}
