@@ -5,7 +5,8 @@ Formato (coordenadas SUMO x/y en metros, y hacia el norte):
      "lanes":  [{"id", "edge", "name", "shape": [[x, y], ...], "width", "allow_passenger"}],
      "edges":  [{"id", "name", "from", "to", "shape"}],
      "junctions": [{"id", "type", "shape"}],
-     "tls":    [{"id", "x", "y", "name", "links": [[indice_en_el_estado, carril, x, y], ...]}]}
+     "tls":    [{"id", "x", "y", "name", "links": [[indice_en_el_estado, carril, x, y, dir, carril_salida], ...]}]}
+`dir` es la direccion SUMO del movimiento: "s" recto, "l"/"L" izquierda, "r"/"R" derecha, "t" vuelta en U.
 Si la red tiene proyeccion geografica se agregan "lon"/"lat" a cada TLS y "bbox_lonlat".
 """
 from __future__ import annotations
@@ -57,6 +58,14 @@ def _can_project(net) -> bool:
 
 def _pts(shape, nd: int = 2) -> list[list[float]]:
     return [[round(float(x), nd), round(float(y), nd)] for x, y in shape]
+
+
+def _direction(in_lane, out_lane) -> str:
+    """Direccion SUMO de la conexion in_lane -> out_lane ("s", "l", "r", "t", "L", "R"); "s" si no se halla."""
+    for c in in_lane.getOutgoing():
+        if c.getToLane().getID() == out_lane.getID():
+            return c.getDirection() or "s"
+    return "s"
 
 
 def export_network(net_file: str, scenario: str | None = None) -> dict:
@@ -114,8 +123,15 @@ def export_network(net_file: str, scenario: str | None = None) -> dict:
             "y": round(y, 2),
             "name": names.get(t.getID(), t.getID()),
             "links": [
-                [int(idx), lane.getID(), round(float(lane.getShape()[-1][0]), 2), round(float(lane.getShape()[-1][1]), 2)]
-                for lane, _out, idx in sorted(conns, key=lambda c: c[2])
+                [
+                    int(idx),
+                    lane.getID(),
+                    round(float(lane.getShape()[-1][0]), 2),
+                    round(float(lane.getShape()[-1][1]), 2),
+                    _direction(lane, out),
+                    out.getID(),
+                ]
+                for lane, out, idx in sorted(conns, key=lambda c: c[2])
             ],
         }
         if projected:
