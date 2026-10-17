@@ -4,7 +4,7 @@ Dos mapas sincronizados ("Semáforo fijo" vs "Agente RL"), KPIs grandes (espera 
 
 ## Correr en desarrollo
 ```bash
-# 1) backend (otra terminal, desde la raíz del repo): FastAPI en :8000
+# 1) backend (otra terminal, desde la raíz del repo): python -m uvicorn web.backend.app:app --port 8000
 # 2) frontend
 cd web/frontend
 npm install
@@ -21,11 +21,13 @@ npm run dev          # http://localhost:5173
 - **Hora del día**: pico / mediodía / noche. **Velocidad**: pausa / 1× / 5× / 20×.
 - **Escenario** y **Política RL** salen de `/api/scenarios` y `/api/policies`; *Reiniciar* manda `reset`.
 
-## Contrato esperado del backend (docs/ARCHITECTURE.md §8)
-- `GET /api/network`: GeoJSON. Carriles = `LineString` con propiedades `id` (carril) y `edge` (si falta, se deduce quitando el sufijo `_N`); coordenadas en el sistema x/y de SUMO. Semáforos = `Point` con `tls` (id) y, opcionalmente, `lanes` (carriles controlados en el orden de la cadena de estado). Sin `lanes`, se dibuja un círculo en la intersección.
-- `GET /api/scenarios` y `GET /api/policies`: lista de strings u objetos (`id|name`, `label`; `algo`, `run`).
-- `WS /ws`: `{"t", "sims": {"fijo": {vehicles, tls, metrics}, "rl": {...}}, "improvement_pct", "incidents"?}`. `incidents` (opcional) es la lista de aristas cerradas; si no viene, la UI lleva la cuenta local.
+## Contrato con el backend (ver `web/README.md`)
+- `GET /api/network`: formato propio del backend, en coordenadas x/y de SUMO (m): `{bbox, lanes[{id, edge, shape, width}], junctions[{id, shape}], tls[{id, name, x, y, links[[índiceEnElEstado, carril, x, y]]}]}`. Los carriles se dibujan como líneas, las intersecciones como polígonos rellenos y cada semáforo como una barra de color en la línea de alto de cada carril que controla (verde si algún enlace del carril está en verde, si no amarillo, si no rojo). `name` (de `tls_names.json`) se escribe junto a cada cruce.
+- `GET /api/scenarios` (`{current, scenarios[{name, description, available}]}`) y `GET /api/policies?scenario=` (`{policies[{algo, run, label, compatible, available}]}`): las políticas no compatibles con el escenario elegido no se ofrecen; el selector se refresca al cambiar de escenario.
+- `WS /ws`: mensajes `type: "state"` (`t`, `sims`, `improvement_pct`, `incidents`, `scenario`, `profile`, `speed`, `policy`, `demand_veh_h`); el servidor manda y los controles siguen su escenario, política, hora del día y velocidad. `ack` con `ok:false`, `error` y `loading` salen como avisos (toasts) abajo a la derecha; los `ack` exitosos de inject/incident/time_of_day/reset, como confirmaciones breves.
+- Los vehículos se interpolan entre los dos últimos mensajes (animación fluida aunque a 1× llegue ~1 mensaje por segundo).
 - Si `improvement_pct` no llega, se calcula con la espera promedio.
+- El modo mock produce el mismo formato de red y de mensajes.
 
 ## Build para que el backend lo sirva
 ```bash

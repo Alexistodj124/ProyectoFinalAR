@@ -5,8 +5,11 @@ a `SimDemand.spawn(conn, t)` con el mismo `t` en "fijo" y en "rl". Asi la demand
 de la RNG interna de SUMO (que se desincroniza en cuanto los semaforos se comportan distinto).
 
 Dos fuentes de demanda de fondo:
-  * `env.demand.DemandGenerator` (rama feat/env-reforma, contrato seccion 3) cuando el
-    escenario genera su demanda (`scenario.profile`) y el modulo se puede importar.
+  * `env.demand.DemandGenerator(scenario, profile, seed)` cuando el escenario genera su demanda
+    (`scenario.profile`, escenarios reforma_* y cruce_*). Se crea UNA sola instancia por
+    construccion (`SharedDemand.gen`): `spawn(conn, t)` lleva un cursor por conexion y las
+    llegadas del segundo s solo dependen de (seed, perfil, s), asi que alimenta a las dos sims
+    con vehiculos identicos. `set_profile`, `rates` e `inject` tambien son suyos.
   * Respaldo: se leen los vehiculos / flujos del `.rou.xml` del escenario (toy_* o el que
     genera `env.demand.routes_for`) y se expanden a una agenda determinista por semilla.
     La "hora del dia" escala esa agenda (adelgaza o duplica llegadas de forma determinista).
@@ -14,7 +17,6 @@ Encima de cualquiera de las dos van las inyecciones manuales (comando `inject`).
 """
 from __future__ import annotations
 
-import inspect
 import logging
 import random
 import xml.etree.ElementTree as ET
@@ -26,16 +28,20 @@ log = logging.getLogger("web.demand")
 FALLBACK_SCALE = {"pico": 1.0, "mediodia": 0.7, "pico_x13": 1.3, "noche": 0.3}
 
 
-def make_generator(net_file: str, profile: str | None, seed: int):
-    """Instancia `env.demand.DemandGenerator` si existe; None si no se puede."""
+def make_generator(scenario, profile: str | None, seed: int):
+    """Instancia `env.demand.DemandGenerator(scenario, profile, seed)`; None si no aplica.
+
+    `scenario` es un `Scenario` (o su nombre). Si el escenario no genera demanda (toy_*, que
+    traen su .rou.xml) o el modulo no se puede importar, devuelve None y se usa la agenda estatica.
+    """
+    if not profile:
+        return None
     try:
-        from env.demand import DemandGenerator  # rama feat/env-reforma
+        from env.demand import DemandGenerator
     except Exception as exc:  # ImportError, o un modulo a medio construir
         log.info("DemandGenerator no disponible (%s); se usa el respaldo estatico", exc)
         return None
-    params = inspect.signature(DemandGenerator).parameters
-    kw = {"seed": seed} if "seed" in params else {}
-    return DemandGenerator(net_file, profile, **kw)
+    return DemandGenerator(scenario, profile, seed=seed)
 
 
 # --------------------------------------------------------------------------- rutas
@@ -177,7 +183,9 @@ class SharedDemand:
     profile: str | None
     schedule: list[Arrival] = field(default_factory=list)  # solo respaldo estatico
     use_generator: bool = False
-    injections: dict[int, list[Injection]] = field(default_factory=dict)
+    gen: object | None = None  # env.demand.DemandGenerator compartido por las dos sims
+    injections: dict[int, list[Injection]] = field(default_factory=dict)  # respaldo (sin generador)
+    gen_injections: dict[int, list[tuple[str, int]]] = field(default_factory=dict)  # t -> [(borde, n)]
     profile_version: int = 0
     scale: float = 1.0
     closed: set = field(default_factory=set)  # bordes cerrados por un incidente
@@ -192,6 +200,11 @@ class SharedDemand:
         self._by_t: dict[int, list[int]] = {}
         for i, a in enumerate(self.schedule):
             self._by_t.setdefault(a.t, []).append(i)
+        if self.gen is not None:
+            self.use_generator = True
+            self._gen_edges = {e for r in self.gen.route_edges for e in r}
+        else:
+            self._gen_edges = set()
         if self.profile in FALLBACK_SCALE:
             self.scale = FALLBACK_SCALE[self.profile] if not self.use_generator else 1.0
 
@@ -211,10 +224,44 @@ class SharedDemand:
         return ids
 
     def set_profile(self, profile: str) -> None:
-        self.profile = profile
-        if not self.use_generator:
+        """Cambia la hora del dia para las dos sims a la vez (un solo generador)."""
+        if self.gen is not None:
+            self.gen.set_profile(profile)  # ValueError/KeyError si el perfil no existe
+        elif not self.use_generator:
             self.scale = FALLBACK_SCALE.get(profile, 1.0)
+        self.profile = profile
         self.profile_version += 1
+
+    def rates(self) -> dict | None:
+        """Tasas actuales del generador (veh/h total y por entrada); None sin generador."""
+        return self.gen.rates() if self.gen is not None else None
+
+    def can_inject_with_gen(self, edge_id: str) -> bool:
+        return self.gen is not None and edge_id in self._gen_edges
+
+    def queue_gen_injection(self, t_now: int, edge_id: str, n: int, per_second: int = 4) -> None:
+        """Agenda `n` vehiculos en `edge_id` repartidos en el tiempo (`per_second` por segundo).
+
+        Se materializan en `pre_step`, UNA vez por segundo y para todas las conexiones a la vez,
+        con `DemandGenerator.inject` (mismos ids y ruta en las dos sims).
+        """
+        left, k = n, 0
+        while left > 0:
+            m = min(per_second, left)
+            self.gen_injections.setdefault(t_now + k, []).append((edge_id, m))
+            left -= m
+            k += 1
+
+    def pre_step(self, t: int, conns: list) -> None:
+        """Lo que debe pasar una sola vez por segundo, antes de que las sims hagan spawn/step."""
+        for edge_id, n in self.gen_injections.pop(t, ()):
+            try:
+                ids = self.gen.inject(conns, edge_id, n)
+            except Exception as exc:  # p. ej. la ruta cruza un borde cerrado por un incidente: no debe tumbar la demo
+                log.warning("inject en %s fallo (%s)", edge_id, exc)
+                continue
+            if not ids:
+                log.warning("inject: %s no esta en ninguna ruta del generador", edge_id)
 
     def background(self, t: int) -> list[Arrival]:
         """Llegadas de la agenda estatica en el segundo t, ya escaladas (determinista por indice)."""
@@ -235,10 +282,7 @@ class SimDemand:
         self.shared = shared
         self.key_first = first  # solo una de las dos sims cuenta los descartados
         self._registered: set[str] = set()
-        self._seen_version = shared.profile_version
-        self.gen = make_generator(shared.net_file, shared.profile, shared.seed) if shared.use_generator else None
-        if shared.use_generator and self.gen is None:
-            raise RuntimeError("el escenario genera su demanda pero env.demand.DemandGenerator no esta disponible")
+        self._gen_failed = False
 
     def _add(self, conn, vid: str, edges: tuple[str, ...], lane="best", speed="max") -> None:
         if self.shared.closed.intersection(edges):  # SUMO no admite rutas por carriles cerrados
@@ -256,15 +300,18 @@ class SimDemand:
 
     def spawn(self, conn, t: int) -> None:
         sh = self.shared
-        if sh.profile_version != self._seen_version:
-            self._seen_version = sh.profile_version
-            if self.gen is not None:
-                if hasattr(self.gen, "set_profile"):
-                    self.gen.set_profile(sh.profile)
-                else:
-                    self.gen.profile = sh.profile
-        if self.gen is not None:
-            self.gen.spawn(conn, t)
+        if sh.gen is not None:
+            try:
+                sh.gen.spawn(conn, t)
+            except Exception as exc:
+                # Un vehiculo imposible (p. ej. todos los carriles de su ruta cerrados) no debe
+                # tumbar la demo ni repetirse en cada segundo: se salta ese segundo.
+                if not self._gen_failed:
+                    log.warning("DemandGenerator.spawn fallo en t=%s: %s", t, exc)
+                    self._gen_failed = True
+                cur = getattr(sh.gen, "_cursor", None)
+                if isinstance(cur, dict):
+                    cur[id(conn)] = int(t)
         else:
             for a in sh.background(t):
                 self._add(conn, a.vid, a.edges, a.lane, a.speed)

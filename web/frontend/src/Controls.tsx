@@ -10,6 +10,7 @@ interface Props {
   scenario: string; setScenario: (s: string) => void;
   policy: string; setPolicy: (s: string) => void;
   closedCount: number;
+  demand: number | null;
   send: (c: Command) => void;
 }
 
@@ -46,6 +47,7 @@ export default function Controls(p: Props) {
         <label>Hora del día</label>
         <Seg value={p.profile} onPick={(v) => { p.setProfile(v as "pico"); p.send({ cmd: "time_of_day", profile: v as "pico" }); }}
           items={[["pico", "Pico"], ["mediodia", "Mediodía"], ["noche", "Noche"]]} />
+        {p.demand !== null && <div className="hint">Demanda ≈ {p.demand.toLocaleString("es")} veh/h</div>}
       </div>
       <div className="group">
         <label>Velocidad</label>
@@ -56,7 +58,7 @@ export default function Controls(p: Props) {
         <label>Escenario</label>
         <select value={p.scenario} onChange={(e) => p.setScenario(e.target.value)}>
           {p.scenarios.length === 0 && <option value="">(sin datos)</option>}
-          {p.scenarios.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {p.scenarios.map((o) => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)}
         </select>
         <label>Política RL</label>
         <select value={p.policy} onChange={(e) => p.setPolicy(e.target.value)}>

@@ -14,6 +14,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -148,8 +149,12 @@ def create_app(initial_scenario: str | None = None, autostart: bool = True) -> F
         return export_network(net_file, name)
 
     @app.get("/api/policies")
-    def policies():
-        return {"policies": list_policies(), "current": manager.policy_info}
+    def policies(scenario: str | None = None):
+        """`scenario` (por defecto el actual) marca con `compatible` las politicas que sirven en esa red."""
+        name = scenario or manager.scenario_name
+        if name not in SCENARIOS:
+            raise HTTPException(404, f"escenario desconocido: {name}")
+        return {"policies": list_policies(name), "scenario": name, "current": manager.policy_info}
 
     @app.get("/api/status")
     def status():
@@ -168,7 +173,8 @@ def create_app(initial_scenario: str | None = None, autostart: bool = True) -> F
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket):
         origin = ws.headers.get("origin")
-        if origin and origin not in ORIGINS:  # los WS no pasan por CORS: se valida a mano
+        # los WS no pasan por CORS: se valida a mano (origenes del desarrollo o el mismo host:puerto que sirve la pagina)
+        if origin and origin not in ORIGINS and urlsplit(origin).netloc != ws.headers.get("host"):
             await ws.close(code=1008)
             return
         await ws.accept()

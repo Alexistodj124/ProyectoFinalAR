@@ -3,17 +3,21 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import os
 from pathlib import Path
 
 import yaml
 
 from agents.base import Policy
 from agents.registry import ALGOS, BASELINES, load_policy
+from env.scenarios import SCENARIOS, Scenario, get_scenario
 
 log = logging.getLogger("web.policies")
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RUNS_DIR = REPO_ROOT / "runs"
+# Los modelos se buscan en runs/ (se puede apuntar a otra carpeta con WEB_RUNS_DIR, p. ej. el runs/ de otro worktree).
+RUNS_DIR = Path(os.environ.get("WEB_RUNS_DIR") or REPO_ROOT / "runs").resolve()
+MULTIAGENT = {"idqn", "qmix", "mappo", "comm"}  # reforma_*; el resto de los algoritmos entrenados es de 1 agente (cruce_*)
 MODEL_PATTERNS = ("model.pt", "model.zip", "qtable.npz", "*.pt", "*.zip", "*.npz")
 LABELS = {"fixed": "Tiempo fijo", "actuated": "Actuado", "max_pressure": "Max-pressure"}
 DEFAULT_RL = {"algo": "max_pressure", "run": None}
@@ -65,8 +69,32 @@ def _find_model(run: Path) -> Path | None:
     return None
 
 
-def list_policies() -> list[dict]:
-    """Baselines + toda corrida `runs/<exp>/<nombre>/seed<k>/` que tenga un modelo guardado."""
+def _read_cfg(run: Path) -> dict:
+    f = run / "config.yaml"
+    if not f.exists():
+        return {}
+    try:
+        return yaml.safe_load(f.read_text()) or {}
+    except Exception:
+        return {}
+
+
+def is_compatible(algo: str, run_scenario: str | None, target: str | Scenario | None) -> bool:
+    """Una politica entrenada solo sirve en la red donde se entreno (mismas dimensiones de observacion):
+    MARL en reforma_*, 1 agente en cruce_*."""
+    if target is None or algo in BASELINES:
+        return True
+    tgt = get_scenario(target) if not isinstance(target, Scenario) else target
+    if run_scenario in SCENARIOS:
+        return get_scenario(run_scenario).net_file == tgt.net_file
+    return (algo in MULTIAGENT) == tgt.name.startswith("reforma")
+
+
+def list_policies(scenario: str | None = None) -> list[dict]:
+    """Baselines + toda corrida `runs/**/seed<k>/` con modelo guardado.
+
+    Cada elemento lleva `compatible` (True si sirve para `scenario`; sin escenario, siempre True).
+    """
     out = [
         {
             "id": a,
@@ -75,33 +103,33 @@ def list_policies() -> list[dict]:
             "label": LABELS[a],
             "kind": "baseline",
             "scenario": None,
+            "multiagent": False,
+            "compatible": True,
             "available": _module_available(a),
         }
         for a in ("max_pressure", "actuated", "fixed")
     ]
     if RUNS_DIR.is_dir():
-        for run in sorted(RUNS_DIR.glob("*/*/seed*")):
-            if not run.is_dir():
+        for run in sorted(RUNS_DIR.rglob("seed*")):
+            if not run.is_dir() or not (run / "config.yaml").exists():
                 continue
-            cfg = {}
-            if (run / "config.yaml").exists():
-                try:
-                    cfg = yaml.safe_load((run / "config.yaml").read_text()) or {}
-                except Exception:
-                    cfg = {}
+            cfg = _read_cfg(run)
             algo = cfg.get("algo")
             model = _find_model(run)
             if algo not in ALGOS or algo in BASELINES or model is None:
                 continue
             rel = run.relative_to(RUNS_DIR).as_posix()
+            exp = run.parent.parent.name
             out.append(
                 {
                     "id": rel,
                     "algo": algo,
                     "run": rel,
-                    "label": f"{cfg.get('name', algo)} (seed {cfg.get('seed', run.name[4:])})",
+                    "label": f"{cfg.get('name', algo)} · {cfg.get('exp', exp)} (seed {cfg.get('seed', run.name[4:])})",
                     "kind": "trained",
                     "scenario": cfg.get("scenario"),
+                    "multiagent": algo in MULTIAGENT,
+                    "compatible": is_compatible(algo, cfg.get("scenario"), scenario),
                     "available": _module_available(algo),
                     "model": model.name,
                 }
@@ -122,7 +150,7 @@ def resolve_run(run: str) -> Path:
     raise ValueError(f"corrida no encontrada dentro de runs/: {run}")
 
 
-def load_rl_policy(spec: dict | None) -> tuple[Policy, dict]:
+def load_rl_policy(spec: dict | None, scenario: str | Scenario | None = None) -> tuple[Policy, dict]:
     """Devuelve (politica, info). Sin modelo o con un baseline que aun no existe, usa respaldos.
 
     `spec` = {"algo": ..., "run": ...}. Un `spec` explicito invalido lanza ValueError (el comando
@@ -140,7 +168,12 @@ def load_rl_policy(spec: dict | None) -> tuple[Policy, dict]:
         else:
             if not run:
                 raise ValueError(f"{algo} necesita una corrida entrenada (campo 'run')")
-            pol = load_policy(algo, str(resolve_run(run)))
+            run_dir = resolve_run(run)
+            run_sc = _read_cfg(run_dir).get("scenario")
+            if not is_compatible(algo, run_sc, scenario):
+                tgt = scenario.name if isinstance(scenario, Scenario) else scenario
+                raise ValueError(f"{run} se entreno en {run_sc} y no sirve para {tgt} (otra red u otro tipo de agente)")
+            pol = load_policy(algo, str(run_dir))
         info = {"algo": algo, "run": run, "label": LABELS.get(algo, algo), "warning": None}
         if run:
             info["label"] = f"{algo} ({run})"

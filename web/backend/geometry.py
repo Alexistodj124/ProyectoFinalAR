@@ -10,6 +10,7 @@ Si la red tiene proyeccion geografica se agregan "lon"/"lat" a cada TLS y "bbox_
 """
 from __future__ import annotations
 
+import json
 import threading
 from pathlib import Path
 
@@ -34,6 +35,26 @@ def read_net(net_file: str):
         return _NET_CACHE[k]
 
 
+def tls_names(net_file: str) -> dict[str, str]:
+    """`tls_names.json` (tls_id -> "Reforma y 12 calle") junto a la red, si existe."""
+    f = Path(net_file).with_name("tls_names.json")
+    try:
+        return json.loads(f.read_text()) if f.exists() else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _can_project(net) -> bool:
+    """La red trae proyeccion geografica Y se puede usar (sumolib necesita pyproj, que es opcional)."""
+    if not net.hasGeoProj():
+        return False
+    try:
+        net.convertXY2LonLat(*net.getBoundary()[:2])
+        return True
+    except Exception:
+        return False
+
+
 def _pts(shape, nd: int = 2) -> list[list[float]]:
     return [[round(float(x), nd), round(float(y), nd)] for x, y in shape]
 
@@ -46,7 +67,7 @@ def export_network(net_file: str, scenario: str | None = None) -> dict:
     if hit is not None:
         return hit
     net = read_net(net_file)
-    projected = bool(net.hasGeoProj())
+    projected = _can_project(net)
 
     lanes, edges = [], []
     for e in net.getEdges(withInternal=False):
@@ -79,6 +100,7 @@ def export_network(net_file: str, scenario: str | None = None) -> dict:
         if n.getShape()
     ]
 
+    names = tls_names(net_file)
     tls = []
     for t in net.getTrafficLights():
         conns = t.getConnections()  # [(inLane, outLane, linkIndex)]
@@ -90,7 +112,7 @@ def export_network(net_file: str, scenario: str | None = None) -> dict:
             "id": t.getID(),
             "x": round(x, 2),
             "y": round(y, 2),
-            "name": t.getID(),
+            "name": names.get(t.getID(), t.getID()),
             "links": [
                 [int(idx), lane.getID(), round(float(lane.getShape()[-1][0]), 2), round(float(lane.getShape()[-1][1]), 2)]
                 for lane, _out, idx in sorted(conns, key=lambda c: c[2])
