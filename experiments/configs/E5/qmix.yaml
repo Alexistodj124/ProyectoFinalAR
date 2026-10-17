@@ -1,0 +1,31 @@
+# E5: QMIX (CTDE, mezcla monótona condicionada al estado global del corredor).
+exp: E5
+algo: qmix
+name: qmix
+scenario: reforma_pico
+seed: 0
+total_episodes: 100
+num_seconds: 3600
+hparams:
+  lr: 5.0e-4
+  gamma: 0.99
+  hidden: [128, 128]
+  mixer: qmix
+  mixing_embed: 32
+  hyper_hidden: 64
+  state_queues: true
+  buffer_size: 50000
+  batch_size: 64
+  learning_starts: 1000
+  train_freq: 1
+  target_update_interval: 500
+  tau: 1.0
+  eps_start: 1.0
+  eps_end: 0.05
+  eps_fraction: 0.3
+  grad_clip: 10.0
+  reward_scale: 0.1      # recompensa de equipo = suma de r_i
+  reward_norm: false
+  device: auto
+  save_every: 10
+eval: {scenarios: [reforma_pico, reforma_mediodia, reforma_pico_x13], every_episodes: 10, episodes: 3}

@@ -1,0 +1,30 @@
+# E6: IDQN + colas de los vecinos en la observación (comunicación v1).
+exp: E6
+algo: idqn
+name: idqn_neighbor_obs
+scenario: reforma_pico
+seed: 0
+total_episodes: 100
+num_seconds: 3600
+hparams:
+  lr: 5.0e-4
+  gamma: 0.99
+  hidden: [128, 128]
+  buffer_size: 50000
+  batch_size: 64
+  learning_starts: 1000
+  train_freq: 1
+  target_update_interval: 500
+  tau: 1.0
+  eps_start: 1.0
+  eps_end: 0.05
+  eps_fraction: 0.3
+  grad_clip: 10.0
+  reward: local
+  reward_scale: 0.1
+  reward_norm: false
+  neighbor_obs: true
+  shared_params: false
+  device: auto
+  save_every: 10
+eval: {scenarios: [reforma_pico, reforma_mediodia, reforma_pico_x13], every_episodes: 10, episodes: 3}
