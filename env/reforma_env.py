@@ -71,6 +71,13 @@ class _DemandReseedWrapper:
             se._route = _route_for(self.scenario, s)
         return self.penv.reset(seed=s, options=options)
 
+    def step(self, actions):
+        # With fixed_ts the actions are ignored, but sumo-rl's parallel wrapper raises
+        # KeyError on {} / None: fill dummy actions so every consumer can pass {}.
+        if not actions:
+            actions = {a: 0 for a in self.penv.agents}
+        return self.penv.step(actions)
+
     def __getattr__(self, name):
         return getattr(self.penv, name)
 

@@ -9,10 +9,9 @@ num_seconds: null          # null = el del escenario (3600 s)
 eval_seeds: 10             # primeras N de EVAL_SEEDS (1000..1009)
 
 incident:
-  # PLACEHOLDER: completar con el id de la arista del corredor cuando exista env/net/reforma.net.xml
-  # (p. ej. la arista principal entre dos semáforos). Con null se elige sola la primera arista
-  # que une dos semáforos del corredor (experiments.robustness.default_incident_edge).
-  edge: null
+  # Choque en Reforma hacia el norte entre 12 calle y 10a calle (deja abierto solo el carril
+  # izquierdo, ver env/incidents.py). Con null se elige sola la primera arista entre dos semáforos.
+  edge: NB_C12_C10
   start: 900
   end: 2100
 

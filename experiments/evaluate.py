@@ -160,6 +160,7 @@ def main(argv=None):
     ap.add_argument("--seeds", nargs="+", type=int, help="por defecto EVAL_SEEDS (1000..1009)")
     ap.add_argument("--num-seconds", type=int)
     ap.add_argument("--out", help="CSV de salida (el resumen va en <out>_summary.csv)")
+    ap.add_argument("--out-dir", help="carpeta de salida: escribe <out-dir>/eval.csv (lo usa run_matrix)")
     ap.add_argument("--no-libsumo", action="store_true", help="usa TraCI en vez de libsumo")
     a = ap.parse_args(argv)
 
@@ -170,7 +171,7 @@ def main(argv=None):
     scenarios = a.scenarios or cfg.get("scenarios")
     seeds = a.seeds or (cfg["seeds"] if isinstance(cfg.get("seeds"), list) else EVAL_SEEDS)
     num_seconds = a.num_seconds or cfg.get("num_seconds")
-    out = a.out or cfg.get("out")
+    out = a.out or (str(Path(a.out_dir) / "eval.csv") if a.out_dir else None) or cfg.get("out")
     if not methods or not scenarios:
         ap.error("hace falta --algo/--scenarios o --config")
 

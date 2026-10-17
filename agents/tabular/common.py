@@ -1,12 +1,11 @@
 """Shared pieces of the tabular agents: epsilon schedule, Policy, persistence, training loop."""
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 
-os.environ.setdefault("LIBSUMO_AS_TRACI", "1")  # one simulation per process when training
-
+# LIBSUMO_AS_TRACI lo fija experiments/train.py (CLI) antes de importar sumo_rl; aquí no,
+# para no romper procesos con dos simulaciones (demo web).
 import numpy as np
 
 from agents.base import Policy
