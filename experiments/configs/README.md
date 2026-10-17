@@ -2,7 +2,7 @@
 
 Cada experimento vive en `experiments/configs/<EXP>/*.yaml` (formato en `docs/ARCHITECTURE.md` §6). Se corren con `experiments.run_matrix`; los resultados quedan en `runs/<EXP>/<nombre>/seed<k>/` y se resumen con `python -m analysis.make_all`.
 
-Reglas comunes (PLAN §8): 5 semillas de entrenamiento (`TRAIN_SEEDS = 0..4`), selección del checkpoint con `VAL_SEEDS = 2000..2004`, evaluación final en 10 episodios con `EVAL_SEEDS = 1000..1009` (nunca vistas en el entrenamiento ni usadas para elegir nada), mismo presupuesto de entorno para todos los algoritmos RL de un experimento, y reporte como media ± IC95. Las tres familias de semillas (y las de los episodios de entrenamiento, `episode_seed >= 10 000`) son disjuntas.
+Reglas comunes (PLAN §8): 5 semillas de entrenamiento (`TRAIN_SEEDS = 0..4`), selección del checkpoint con `VAL_SEEDS` (2000 y 2001, las dos primeras de `2000..2004`, por `val_seeds: 2`), evaluación final en 10 episodios con `EVAL_SEEDS = 1000..1009` (nunca vistas en el entrenamiento ni usadas para elegir nada), mismo presupuesto de entorno para todos los algoritmos RL de un experimento, y reporte como media ± IC95. Las tres familias de semillas (y las de los episodios de entrenamiento, `episode_seed >= 10 000`) son disjuntas.
 
 | Exp | Pregunta | Configs (`experiments/configs/...`) | Escenarios | Semillas | Presupuesto |
 |---|---|---|---|---|---|
@@ -15,7 +15,7 @@ Reglas comunes (PLAN §8): 5 semillas de entrenamiento (`TRAIN_SEEDS = 0..4`), s
 | E7 | ¿Generaliza el mejor agente? | `E7/robustness.yaml` | `<base>_pico`, `_mediodia`, `_pico_x13`, `_pico` + incidente | los mejores run_dir de E3/E4/E5/E6 | solo evaluación |
 | E8 | ¿Se sacrifica a las calles transversales? | `E8/fairness.yaml` (reúne `eval.csv` de todo) + `E8/qmix_fair.yaml`, `E8/comm_fair.yaml` (variantes con penalización de equidad) | `cruce_pico`, `reforma_pico` | 5 (variantes) / las de cada experimento | igual que E5/E6 para las variantes |
 
-Los YAML de E1 a E6 los aportan las ramas de líneas base y de algoritmos; `E7/` y `E8/` son de la rama de experimentos.
+Todos los YAML ya están en `main` y son los que usó la matriz completa (200 episodios por corrida, 5 semillas). Los resultados están en `analysis/results/RESUMEN.md` y en el informe (`docs/informe/informe.md`, secciones 7 y 8).
 
 ## Cómo correr
 

@@ -4,14 +4,15 @@
 |---|---|
 | `informe.md` | Fuente del informe en Markdown, en español. Fórmulas con `$...$` y `$$...$$` (KaTeX); figuras como `../figures/<nombre>.png` |
 | `render_pdf.py` | Markdown → HTML con KaTeX → PDF con Chrome headless |
-| `informe.html`, `informe.pdf` | Salidas generadas (ignoradas por git) |
+| `figura_escenario.py` | Figura 1 (`docs/figures/escenario_corredor.png`), dibujada desde `env/net/reforma.net.xml` sin simular |
+| `informe.pdf` | PDF de entrega (`--pdf --final`), versionado |
+| `informe.html` | Salida intermedia (ignorada por git) |
 
 ## Estado del borrador
 
-- Las secciones 1–6 y 9–11 describen lo que está implementado en el repositorio (red, demanda, líneas base, algoritmos, métricas y protocolo).
-- Las secciones 7–8 (resultados E1–E8) y partes del resumen y las conclusiones son **marcadores**: comentarios HTML `<!-- RESULTADOS: ... -->` y recuadros de figuras pendientes. No se escribió ningún número de resultados.
-- Los conteos, el ciclo de tiempo fijo y la referencia de validación son **sintéticos o provisionales**, y el informe lo dice explícitamente (secciones 4.3–4.5 y 9.2). Si se consiguen datos de campo, hay que actualizar esas secciones y quitar las advertencias.
-- Hay que completar a mano: integrantes, enlace al repositorio y fecha, los comentarios `COMPLETAR:` / `DATO:`, la tabla de la sección 11 (uso de IA) y la verificación de las referencias.
+- Todas las secciones están escritas con los resultados finales de E1 a E8. Cada número de las secciones 7 y 8 (y del resumen y las conclusiones) sale de `analysis/results/*.md`, generados con `python -m analysis.make_all` desde `runs/`, y cada figura de `docs/figures/`.
+- Los conteos, el ciclo de tiempo fijo y la referencia de validación siguen siendo **sintéticos o provisionales**, y el informe lo dice explícitamente (secciones 4.3–4.5 y 9.2). Si se consiguen datos de campo, hay que actualizar esas secciones, quitar las advertencias y volver a correr la matriz.
+- Falta que el equipo complete a mano: integrantes, enlace al repositorio y fecha; el dato con fuente sobre el tráfico en Guatemala (`DATO`, sección 1.1); los `COMPLETAR` de datos de campo (secciones 4.3–4.5) y de otras herramientas de IA; la verificación manual y la tabla de ejemplos de uso de IA (sección 11), y la revisión de las referencias (`PENDIENTE`).
 
 ## Cómo llenar los resultados
 
@@ -19,7 +20,7 @@
 source scripts/env.sh
 python -m analysis.make_all          # figuras en docs/figures/, tablas en analysis/results/*.md
 ```
-Los nombres de figura que espera el informe son los que genera `analysis/plots.py`: `E{1..6}_eval_bars.png`, `E{2..6}_learning_curves.png`, `E7_robustness.png`, `E8_fairness_reforma_pico.png` y `E8_fairness_cruce_pico.png`. La Figura 1 (`escenario_corredor.png`, captura de la red con los 5 semáforos) se guarda a mano en `docs/figures/`. Las tablas se copian desde `analysis/results/E*.md` en el lugar de cada comentario `RESULTADOS: tabla Ex`.
+Además de las de abajo, `make_all` genera `resumen_demora_total`, `E7_degradation`, `E8_tradeoff_<escenario>`, `CO2_reforma_pico`, `seleccion_validacion_marl` y `seleccion_validacion_agente_unico`; `analysis/results/RESUMEN.md` lista todas con su descripción y las respuestas de E1 a E8. Los nombres de figura que espera el informe son los que genera `analysis/plots.py`: `E{1..6}_eval_bars.png`, `E{2..6}_learning_curves.png`, `E7_robustness.png`, `E8_fairness_reforma_pico.png` y `E8_fairness_cruce_pico.png`. La Figura 1 (`escenario_corredor.png`, la red con los 5 semáforos) se genera con `python docs/informe/figura_escenario.py`. Las tablas del informe se copiaron (redondeadas) desde `analysis/results/E*.md`; si se vuelve a correr la matriz hay que actualizarlas a mano.
 
 ## Cómo generar el PDF en esta Mac
 

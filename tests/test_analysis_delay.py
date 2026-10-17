@@ -44,15 +44,15 @@ def runs(tmp_path):
 def test_tables_put_total_delay_and_backlog_first(runs, tmp_path):
     tables.make_tables("E1", runs, tmp_path / "t")
     md = (tmp_path / "t" / "E1_eval.md").read_text()
-    header = [l for l in md.splitlines() if l.startswith("| method")][0]
+    header = [l for l in md.splitlines() if l.startswith("| Método")][0]
     cols = [c.strip() for c in header.strip("|").split("|")]
-    assert cols[1:4] == [data.METRICS[m][0] for m in ("mean_waiting_time", "total_delay", "backlog_pct")]
+    assert cols[1:4] == [data.METRICS[m][0] for m in ("total_delay", "mean_waiting_time", "backlog_pct")]
     assert data.METRICS["max_wait_cross_streets"][0] in cols and data.METRICS["mean_stops"][0] in cols
     # "hungry" gana en espera pero pierde en demora total: la negrita va a métricas distintas
     row = lambda name: [l for l in md.splitlines() if l.startswith(f"| {name} ")][0]
-    assert "**" in row("hungry").split("|")[2] and "**" not in row("hungry").split("|")[3]
+    assert "**" in row("hungry").split("|")[3] and "**" not in row("hungry").split("|")[2]
     # el método viejo no tiene las columnas nuevas: "-" y sin excepción
-    assert row("old_method").split("|")[3].strip() == "-"
+    assert row("old_method").split("|")[2].strip() == "-"
 
 
 def test_all_missing_metric_does_not_crash(runs, tmp_path):
@@ -66,9 +66,9 @@ def test_all_missing_metric_does_not_crash(runs, tmp_path):
     assert plots.bar_chart(only_old.drop(columns=["mean_waiting_time"]), "x", out_dir=tmp_path) == []
 
 
-def test_bar_charts_default_to_wait_total_delay_backlog(runs, tmp_path):
+def test_bar_charts_default_to_total_delay_wait_backlog(runs, tmp_path):
     df = data.load_eval(runs, "E1")
-    assert data.available(df, data.BAR_METRICS) == ["mean_waiting_time", "total_delay", "backlog_pct"]
+    assert data.available(df, data.BAR_METRICS) == ["total_delay", "mean_waiting_time", "backlog_pct"]
     out = plots.eval_bars("E1", runs, tmp_path / "f")
     assert {p.suffix for p in out} == {".png", ".pdf"} and all(p.stat().st_size > 1000 for p in out)
     assert plots.eval_bars("E1", runs, tmp_path / "g", metrics=("total_delay",))
