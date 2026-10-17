@@ -37,9 +37,9 @@ export default function LineChart({ title, unit, field, fijo, rl }: Props) {
       g.beginPath(); g.moveTo(L, y); g.lineTo(w - R, y); g.stroke();
       g.textAlign = "right"; g.fillText(v.toFixed(v < 10 ? 1 : 0), L - 6, y + 4);
     }
-    g.textAlign = "center";
     for (let i = 0; i <= 5; i++) {
       const t = tMin + (WINDOW_S * i) / 5;
+      g.textAlign = i === 5 ? "right" : "center"; // la ultima etiqueta centrada quedaba cortada en el borde
       g.fillText(`${Math.round(t / 60)}m`, X(t), h - 5);
     }
     const draw = (pts: Point[], color: string) => {

@@ -68,7 +68,7 @@ Servidor -> cliente (solo hay mensaje cuando la sim avanzó; en pausa, un latido
 
 ```json
 {"type": "state", "t": 312, "episode": 1, "speed": 5.0, "scenario": "reforma_pico",
- "profile": "pico", "demand_veh_h": 6252, "incidents": ["NB_C12_C10"],
+ "profile": "pico", "demand_veh_h": 7352, "incidents": ["NB_C12_C10"],
  "policy": {"algo": "max_pressure", "label": "Max-pressure", "warning": null},
  "improvement_pct": 18.4,
  "sims": {"fijo": {"vehicles": [[id, x, y, angle, speed], ...],
@@ -88,7 +88,7 @@ Cliente -> servidor (cada comando recibe `{"type":"ack","cmd":...,"ok":true|fals
 | Comando | Efecto |
 |---|---|
 | `{"cmd":"inject","edge":id,"n":k}` | `k` vehículos (4 por segundo) en ese borde (acepta id de carril: `C12_W_in` o `C12_W_in_1`), por la ruta más probable de `DemandGenerator.inject`; mismos ids/ruta/instante en ambas. Bordes fuera de las rutas del generador usan la ruta más larga hasta una salida. |
-| `{"cmd":"time_of_day","profile":"pico\|mediodia\|noche\|pico_x13"}` | `DemandGenerator.set_profile`; responde la demanda en veh/h (pico ≈ 6250, mediodía ≈ 4200, noche ≈ 1900). En escenarios toy escala la agenda del `.rou.xml`. |
+| `{"cmd":"time_of_day","profile":"pico\|mediodia\|noche\|pico_x13"}` | `DemandGenerator.set_profile`; responde la demanda en veh/h (corredor: pico ≈ 7350, mediodía ≈ 4800, noche ≈ 2200; cruce de la 12 calle en pico ≈ 4900). En escenarios toy escala la agenda del `.rou.xml`. |
 | `{"cmd":"incident","edge":id,"on":true\|false}` | Convención de `env/incidents.py` (la de E7): `lane.setDisallowed(["passenger"])` en todos los carriles del borde **menos el de más a la izquierda** (un borde de 1 carril se cierra entero) y reruteo de los vehículos afectados; `false` restaura los permisos originales. En `NB_C12_C10` el único carril abierto es la bahía de giro a la izquierda, así que el tráfico recto hacia el norte se detiene. Los vehículos cuya ruta ya no es transitable se descartan (igual en las dos sims). |
 | `{"cmd":"speed","value":0\|1\|5\|20}` | segundos simulados por segundo real (acepta cualquier valor 0–60) |
 | `{"cmd":"reset","scenario":..., "policy":{"algo":..., "run":...}, "seed":1000}` | reconstruye todo (cuesta ~1–3 s, mientras se emite `{"type":"loading"}`); borra incidentes y hora del día. Si falla (p. ej. un modelo de otra red), la simulación anterior sigue corriendo. |
@@ -122,7 +122,7 @@ Antes: backend arrancado, página abierta en `http://localhost:8000`, pantalla c
 | 2:00 | Cerrar con la tarjeta de mejora. | Resumir el número. |
 
 Notas para el ensayo:
-- Con pocos minutos simulados el agente suele verse mejor que el tiempo fijo; la ventaja se achica con el tiempo (con la semilla 1000 y max-pressure: ≈29 % a los 5 min simulados y ≈3 % a los 10 min). Ensaya con el modelo definitivo y deja el escenario corriendo ~1 min antes de empezar a hablar.
+- La tarjeta de mejora arranca alta y se estabiliza con el tiempo. Medido en `reforma_pico` con la semilla 1000 (octubre 2026, `docs/video/README.md`): MAPPO (`E5/mappo/seed3`) ≈51 % a los 5 min simulados, ≈48 % a los 10 y ≈47 % a los 15; comm (`E6/comm/seed0`) ≈50/51/48 %; QMIX (`E5/qmix/seed3`) ≈49/48/47 %; max-pressure ≈47/47/43 %. En `cruce_pico`: DQN (`E4/dqn_best/seed1`) ≈38/46/52 %, PPO (`E4/ppo/seed0`) ≈51/55/57 %. Es la espera en vivo de la demo, no la demora total de la evaluación (§7). Ensaya con el modelo definitivo y deja el escenario corriendo ~1 min antes de empezar a hablar.
 - Un clic en el mapa de la izquierda o el de la derecha vale igual: el comando se aplica a las dos sims.
 - Si algo falla en vivo: *Reiniciar* (1–3 s), o reproducir el video de respaldo.
 

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- GENERADO por ../edl.py: marco, riel de capítulos y etiqueta EN VIVO durante toda la demo -->
+  </head>
+  <body>
+    <template id="chrome-template">
+      <style>
+        #root { position: absolute; inset: 0; font-family: "Montserrat", sans-serif; color: #e8ecf3; }
+        #frame-shadow { position: absolute; left: 120px; top: 22px; width: 1680px; height: 945px; border-radius: 16px; background: #0b0e14;
+          box-shadow: 0 0 0 2px #232a38, 0 30px 90px rgba(0, 0, 0, 0.55); }
+        #band-line { position: absolute; left: 120px; top: 978px; width: 1680px; height: 2px; background: #232a38; }
+        #rail { position: absolute; left: 0; top: 300px; width: 120px; height: 480px; }
+        #rail-line { position: absolute; left: 22px; top: 6px; width: 2px; height: 450px; background: #232a38; }
+        .rail-n { position: relative; height: 66px; padding-left: 32px; color: #7b8496; }
+        .rail-num { display: block; font-family: "JetBrains Mono", monospace; font-size: 24px; font-weight: 700; }
+        .rail-lab { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase; }
+        #rail-mark { position: absolute; left: 16px; top: 8px; width: 14px; height: 14px; border-radius: 50%;
+          background: #2ee6a6; box-shadow: 0 0 16px rgba(46, 230, 166, 0.8); }
+        #live { position: absolute; right: 26px; top: 360px; width: 70px; height: 360px; }
+        #live-dot { position: absolute; left: 26px; top: 0; width: 18px; height: 18px; border-radius: 50%; background: #2ee6a6;
+          box-shadow: 0 0 18px rgba(46, 230, 166, 0.9); }
+        #live-txt { position: absolute; left: 35px; top: 40px; width: 320px; height: 26px; transform: rotate(90deg);
+          transform-origin: 0 0; font-family: "JetBrains Mono", monospace; font-size: 18px; letter-spacing: 0.22em;
+          color: #7d869a; white-space: nowrap; }
+      </style>
+
+      <div id="root" data-composition-id="chrome" data-width="1920" data-height="1080" data-duration="190.533">
+        <div id="frame-shadow"></div>
+        <div id="band-line"></div>
+        <div id="rail">
+          <div id="rail-line"></div>
+          <div id="rail-mark"></div>
+          <div class="rail-n" id="rail0"><span class="rail-num">01</span><span class="rail-lab">MAPPO</span></div>
+          <div class="rail-n" id="rail1"><span class="rail-num">02</span><span class="rail-lab">Inyectar</span></div>
+          <div class="rail-n" id="rail2"><span class="rail-num">03</span><span class="rail-lab">Hora</span></div>
+          <div class="rail-n" id="rail3"><span class="rail-num">04</span><span class="rail-lab">Incidente</span></div>
+          <div class="rail-n" id="rail4"><span class="rail-num">05</span><span class="rail-lab">Políticas</span></div>
+          <div class="rail-n" id="rail5"><span class="rail-num">06</span><span class="rail-lab">Velocidad</span></div>
+          <div class="rail-n" id="rail6"><span class="rail-num">07</span><span class="rail-lab">Cruce</span></div>
+        </div>
+        <div id="live"><div id="live-dot"></div><div id="live-txt">DEMO EN VIVO · SUMO + RL</div></div>
+      </div>
+
+      <script>
+        (function () {
+          const D = {"dur": 190.53333333333333, "chStart": [0.0, 28.0, 52.0, 72.0, 101.6, 137.6, 160.96666666666667]};
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo("#frame-shadow, #band-line", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power2.out" }, 0);
+          tl.fromTo("#rail, #live", { opacity: 0 }, { opacity: 1, duration: 0.6 }, 0.2);
+          // riel: marca y color del capítulo activo
+          D.chStart.forEach((t0, i) => {
+            tl.to("#rail-mark", { y: i * 66, duration: 0.45, ease: "power3.inOut" }, Math.max(0, t0 - 0.2));
+            tl.to("#rail" + i, { color: "#2ee6a6", duration: 0.3 }, t0);
+            if (i > 0) tl.to("#rail" + (i - 1), { color: "#aab3c4", duration: 0.3 }, t0);
+          });
+          tl.fromTo("#live-dot", { opacity: 1 }, { opacity: 0.25, duration: 0.8, ease: "sine.inOut", yoyo: true,
+            repeat: Math.floor(D.dur / 0.8) - 2 }, 0);
+          window.__timelines["chrome"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

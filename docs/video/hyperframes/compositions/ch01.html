@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- GENERADO por ../edl.py (capítulo ch01): editar la EDL ahí y volver a correr `python3 edl.py` -->
+  </head>
+  <body>
+    <template id="ch01-template">
+      <style>
+        #root { position: absolute; inset: 0; font-family: "Montserrat", sans-serif; color: #e8ecf3; }
+        #ch01-frame { position: absolute; left: 120px; top: 22px; width: 1680px; height: 945px; overflow: hidden; border-radius: 16px; background: #0b0e14; }
+        #ch01-cam { position: absolute; left: 0; top: 0; width: 1680px; height: 945px; transform-origin: 0 0; }
+        #ch01-footage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform: scale(0.875); transform-origin: 0 0; }
+        #ch01-footage .vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; }
+        #ch01-footage .ring { position: absolute; border: 5px solid #2ee6a6; border-radius: 16px; margin: -6px 0 0 -6px; padding: 6px;
+          box-sizing: content-box; box-shadow: 0 0 28px rgba(46, 230, 166, 0.55), inset 0 0 18px rgba(46, 230, 166, 0.25); }
+        #root .caption { position: absolute; left: 120px; top: 986px; width: 1680px; height: 84px; font-size: 30px; font-weight: 700;
+          letter-spacing: -0.01em; white-space: nowrap; }
+        #root .caption::before { content: attr(data-k); display: block; margin-bottom: 8px; font-family: "JetBrains Mono", monospace;
+          font-size: 20px; font-weight: 400; letter-spacing: 0.12em; color: #2ee6a6; }
+        #root .chip { position: absolute; right: 120px; top: 982px; height: 32px; padding: 0 14px; border-radius: 8px;
+          background: #1b2434; border: 2px solid #3a4a6a; color: #e2e8f2; font-family: "JetBrains Mono", monospace;
+          font-size: 18px; line-height: 28px; letter-spacing: 0.08em; white-space: nowrap; }
+      </style>
+
+      <div id="root" data-composition-id="ch01" data-width="1920" data-height="1080" data-duration="28">
+        <div id="ch01-frame">
+          <div id="ch01-cam">
+            <div id="ch01-footage">
+          <video id="ch01-v00" class="clip vid" src="../media/a_mappo.mp4" data-start="0" data-duration="14" data-media-start="1.5" data-playback-rate="1" data-track-index="1" data-hf-media-start-basis="local" muted playsinline></video>
+          <video id="ch01-v01" class="clip vid" src="../media/a_mappo.mp4" data-start="14" data-duration="14" data-media-start="15.5" data-playback-rate="3" data-track-index="1" data-hf-media-start-basis="local" muted playsinline></video>
+          <div id="ch01-ring00" class="clip ring" data-start="0.3" data-duration="4.2" data-track-index="2" style="left:1658px;top:516px;width:238px;height:96px"></div>
+          <div id="ch01-ring01" class="clip ring" data-start="23.8333" data-duration="3.66667" data-track-index="2" style="left:1566px;top:9px;width:340px;height:114px"></div>
+            </div>
+          </div>
+        </div>
+      <div id="ch01-cap00" class="clip caption" data-start="0" data-duration="7.5" data-track-index="3" data-k="01 / 07 · HORA PICO — FIJO VS MAPPO">Elegimos MAPPO (la mejor semilla) y pulsamos Reiniciar: los dos lados arrancan con la misma demanda.</div>
+      <div id="ch01-cap01" class="clip caption" data-start="7.5" data-duration="6.5" data-track-index="3" data-k="01 / 07 · HORA PICO — FIJO VS MAPPO">A 5×: la espera del agente (verde) crece mucho menos que la del semáforo fijo (ámbar).</div>
+      <div id="ch01-cap02" class="clip caption" data-start="14" data-duration="9.83333" data-track-index="3" data-k="01 / 07 · HORA PICO — FIJO VS MAPPO">A 20× las curvas de espera y de cola se separan y ya no se vuelven a juntar.</div>
+      <div id="ch01-cap03" class="clip caption" data-start="23.8333" data-duration="4.16667" data-track-index="3" data-k="01 / 07 · HORA PICO — FIJO VS MAPPO">Tarjeta «Mejora»: ≈47 % menos espera promedio en vivo a los 15 min simulados.</div>
+      <div id="ch01-chip00" class="clip chip" data-start="14" data-duration="14" data-track-index="4">VIDEO 3×</div>
+      </div>
+
+      <script>
+        (function () {
+          const D = {"dur": 28.0, "rings": [[0.3, 4.5], [23.833333333333332, 27.5]], "caps": [[0.0, 7.5], [7.5, 14.0], [14.0, 23.833333333333332], [23.833333333333332, 28.0]], "chips": [[14.0, 28.0]], "punches": [[23.833333333333332, 28.0, 1.4, -672.0, 0.0]], "first": true};
+          const root = document.querySelector('[data-composition-id="ch01"]');
+          const q = (s) => root.querySelectorAll(s);
+          const tl = gsap.timeline({ paused: true });
+          if (D.first) tl.fromTo("#ch01-frame", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, 0);
+          // subtítulos: sube y entra (waterfall-entry contenido), sale rápido
+          q(".caption").forEach((el, i) => {
+            const [a, b] = D.caps[i];
+            tl.fromTo(el, { y: 22, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "expo.out" }, a + 0.05);
+            if (b - a > 1.2 && b < D.dur - 0.05) tl.to(el, { opacity: 0, duration: 0.2, ease: "power1.in" }, b - 0.2);
+          });
+          q(".chip").forEach((el, i) => {
+            const [a] = D.chips[i];
+            tl.fromTo(el, { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, a + 0.05);
+          });
+          // anillos de resaltado sobre la UI real
+          q(".ring").forEach((el, i) => {
+            const [a, b] = D.rings[i];
+            tl.fromTo(el, { scale: 1.25, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "power3.out" }, a);
+            const pulses = Math.max(0, Math.floor((b - a - 0.9) / 0.5));
+            if (pulses > 0) tl.to(el, { scale: 1.05, duration: 0.25, ease: "sine.inOut", yoyo: true, repeat: pulses - 1 }, a + 0.45);
+            tl.to(el, { opacity: 0, duration: 0.25 }, b - 0.25);
+          });
+          // punch-ins (viewport-change: un solo envoltorio con escala + traslación)
+          D.punches.forEach(([a, b, s, x, y]) => {
+            tl.fromTo("#ch01-cam", { scale: 1, x: 0, y: 0 }, { scale: s, x: x, y: y, duration: 0.9, ease: "power3.inOut", immediateRender: false }, a);
+            tl.to("#ch01-cam", { scale: 1, x: 0, y: 0, duration: 0.45, ease: "power2.inOut" }, b - 0.45);
+          });
+          window.__timelines["ch01"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template id="closing-template">
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #0b0e14;
+          color: #e8ecf3;
+          font-family: "Montserrat", sans-serif;
+        }
+        #cl-bg {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(1000px 640px at 50% 55%, rgba(46, 230, 166, 0.13), transparent 70%);
+        }
+        #cl-box {
+          position: absolute;
+          left: 160px;
+          right: 160px;
+          top: 300px;
+          text-align: center;
+        }
+        #cl-dots {
+          display: flex;
+          justify-content: center;
+          gap: 26px;
+        }
+        .cl-dot {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+        }
+        #cl-dot-r { background: #ff4d4d; }
+        #cl-dot-y { background: #ffd23f; }
+        #cl-dot-g { background: #2ee6a6; box-shadow: 0 0 34px rgba(46, 230, 166, 0.7); }
+        #cl-main {
+          margin-top: 48px;
+          font-weight: 900;
+          font-size: 76px;
+          letter-spacing: -0.03em;
+          line-height: 1.1;
+        }
+        #cl-main .g { color: #2ee6a6; }
+        #cl-main .cl-line { display: block; }
+        #cl-repo {
+          margin-top: 34px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 34px;
+          color: #c9d2e3;
+        }
+        #cl-note {
+          margin-top: 54px;
+          font-size: 24px;
+          color: #8b95a7;
+        }
+        #cl-black {
+          position: absolute;
+          inset: 0;
+          background: #05070a;
+          opacity: 0;
+        }
+      </style>
+
+      <div id="root" data-composition-id="closing" data-width="1920" data-height="1080" data-duration="5.5">
+        <div id="cl-bg"></div>
+        <div id="cl-box">
+          <div id="cl-dots"><div class="cl-dot" id="cl-dot-r"></div><div class="cl-dot" id="cl-dot-y"></div><div class="cl-dot" id="cl-dot-g"></div></div>
+          <div id="cl-main"><span class="cl-line">CC3104 Aprendizaje por Refuerzo</span><span class="cl-line"><span class="g">UVG</span> · 2026</span></div>
+          <div id="cl-repo">github.com/Alexistodj124/ProyectoFinalAR</div>
+          <div id="cl-note">Video de respaldo grabado con la demo real (SUMO + FastAPI + React) · editado con HyperFrames</div>
+        </div>
+        <div id="cl-black"></div>
+      </div>
+
+      <script>
+        (function () {
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo("#cl-bg", { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "sine.out" }, 0);
+          tl.fromTo(".cl-dot", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, stagger: 0.12, ease: "back.out(2.4)" }, 0.15);
+          tl.fromTo("#cl-main", { y: 36, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "expo.out" }, 0.45);
+          tl.fromTo("#cl-repo", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 0.85);
+          tl.fromTo("#cl-note", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "sine.out" }, 1.2);
+          tl.to("#cl-dot-g", { scale: 1.18, duration: 0.6, ease: "sine.inOut", yoyo: true, repeat: 3 }, 1.4);
+          tl.to("#cl-black", { opacity: 1, duration: 0.8, ease: "power1.in" }, 4.7);
+          window.__timelines["closing"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

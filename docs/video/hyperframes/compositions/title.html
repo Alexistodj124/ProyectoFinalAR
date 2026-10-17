@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template id="title-template">
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #0b0e14;
+          color: #e8ecf3;
+          font-family: "Montserrat", sans-serif;
+        }
+        #title-bg {
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(900px 620px at 18% 70%, rgba(46, 230, 166, 0.16), transparent 70%),
+            radial-gradient(760px 560px at 86% 22%, rgba(255, 159, 67, 0.12), transparent 70%);
+        }
+        #title-grid {
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(139, 149, 167, 0.07) 2px, transparent 2px),
+            linear-gradient(90deg, rgba(139, 149, 167, 0.07) 2px, transparent 2px);
+          background-size: 96px 96px;
+        }
+        #title-ghost {
+          position: absolute;
+          right: -40px;
+          bottom: -70px;
+          font-family: "League Gothic", sans-serif;
+          font-size: 420px;
+          line-height: 1;
+          color: rgba(232, 236, 243, 0.05);
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+        }
+        #title-content {
+          position: absolute;
+          left: 150px;
+          top: 250px;
+          width: 1500px;
+        }
+        #title-kicker {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 26px;
+          letter-spacing: 0.18em;
+          color: #2ee6a6;
+          text-transform: uppercase;
+        }
+        #title-h1 {
+          margin: 30px 0 0;
+          font-weight: 900;
+          font-size: 116px;
+          line-height: 1.02;
+          letter-spacing: -0.035em;
+        }
+        #title-h1 .line {
+          display: block;
+        }
+        #title-h1 .accent {
+          color: #2ee6a6;
+        }
+        #title-rule {
+          width: 640px;
+          height: 6px;
+          margin-top: 44px;
+          border-radius: 3px;
+          background: linear-gradient(90deg, #ff9f43 0 33%, #ffd23f 33% 66%, #2ee6a6 66% 100%);
+          transform-origin: 0 50%;
+        }
+        #title-sub {
+          margin-top: 40px;
+          font-size: 40px;
+          font-weight: 400;
+          color: #c9d2e3;
+          letter-spacing: -0.01em;
+        }
+        #title-sub b {
+          font-weight: 700;
+          color: #e8ecf3;
+        }
+        #title-lights {
+          position: absolute;
+          right: 170px;
+          top: 270px;
+          width: 120px;
+          height: 330px;
+          border-radius: 60px;
+          background: #121722;
+          border: 3px solid #232a38;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-evenly;
+        }
+        .title-lamp {
+          width: 74px;
+          height: 74px;
+          border-radius: 50%;
+          background: #1b2230;
+        }
+        #title-lamp-r { background: #4a1d24; }
+        #title-lamp-y { background: #3d3400; }
+        #title-lamp-g { background: #2ee6a6; box-shadow: 0 0 46px rgba(46, 230, 166, 0.75); }
+      </style>
+
+      <div id="root" data-composition-id="title" data-width="1920" data-height="1080" data-duration="5">
+        <div id="title-bg"></div>
+        <div id="title-grid"></div>
+        <div id="title-ghost">REFORMA</div>
+        <div id="title-content">
+          <div id="title-kicker">Proyecto final · Aprendizaje por refuerzo</div>
+          <h1 id="title-h1"><span class="line">Semáforos inteligentes</span><span class="line accent">en Av. La Reforma</span></h1>
+          <div id="title-rule"></div>
+          <div id="title-sub"><b>Demo en vivo</b> · RL multiagente · CC3104 UVG</div>
+        </div>
+        <div id="title-lights">
+          <div class="title-lamp" id="title-lamp-r"></div>
+          <div class="title-lamp" id="title-lamp-y"></div>
+          <div class="title-lamp" id="title-lamp-g"></div>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          const tl = gsap.timeline({ paused: true });
+          // titlecard-reveal: una sola revelación contenida y luego quietud
+          tl.fromTo("#title-bg", { opacity: 0 }, { opacity: 1, duration: 1.2, ease: "sine.out" }, 0);
+          tl.fromTo("#title-grid", { opacity: 0 }, { opacity: 1, duration: 1.4, ease: "sine.out" }, 0.1);
+          tl.fromTo("#title-ghost", { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 4.8, ease: "none" }, 0);
+          tl.fromTo("#title-kicker", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 0.25);
+          tl.fromTo("#title-h1", { y: 46, opacity: 0, scale: 0.97 }, { y: 0, opacity: 1, scale: 1, duration: 0.8, ease: "expo.out" }, 0.4);
+          tl.fromTo("#title-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "power2.inOut" }, 0.95);
+          tl.fromTo("#title-sub", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "power2.out" }, 1.25);
+          tl.fromTo("#title-lights", { x: 80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: "back.out(1.6)" }, 0.6);
+          // el semáforo cambia: rojo -> amarillo -> verde (la idea del proyecto)
+          tl.set("#title-lamp-g", { background: "#16241f", boxShadow: "none" }, 0);
+          tl.set("#title-lamp-r", { background: "#ff4d4d", boxShadow: "0 0 46px rgba(255,77,77,0.7)" }, 0.7);
+          tl.set("#title-lamp-r", { background: "#4a1d24", boxShadow: "none" }, 1.7);
+          tl.set("#title-lamp-y", { background: "#ffd23f", boxShadow: "0 0 46px rgba(255,210,63,0.7)" }, 1.7);
+          tl.set("#title-lamp-y", { background: "#3d3400", boxShadow: "none" }, 2.3);
+          tl.set("#title-lamp-g", { background: "#2ee6a6", boxShadow: "0 0 46px rgba(46,230,166,0.75)" }, 2.3);
+          // salida suave hacia el contexto
+          tl.to("#title-content, #title-lights", { opacity: 0, y: -20, duration: 0.45, ease: "power2.in" }, 4.5);
+          window.__timelines["title"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

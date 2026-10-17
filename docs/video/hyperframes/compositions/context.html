@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template id="context-template">
+      <style>
+        #root {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #0b0e14;
+          color: #e8ecf3;
+          font-family: "Montserrat", sans-serif;
+        }
+        #ctx-bg {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(1100px 520px at 50% 50%, rgba(46, 230, 166, 0.09), transparent 70%);
+        }
+        #ctx-head {
+          position: absolute;
+          left: 150px;
+          top: 96px;
+          width: 1620px;
+        }
+        #ctx-kicker {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 24px;
+          letter-spacing: 0.18em;
+          color: #2ee6a6;
+          text-transform: uppercase;
+        }
+        #ctx-title {
+          margin-top: 18px;
+          font-weight: 900;
+          font-size: 72px;
+          letter-spacing: -0.03em;
+          line-height: 1.05;
+        }
+        #ctx-sub {
+          margin-top: 14px;
+          font-size: 30px;
+          color: #a9b3c5;
+        }
+        #ctx-map {
+          position: absolute;
+          left: 110px;
+          top: 360px;
+          width: 1700px;
+          height: 330px;
+        }
+        #ctx-map svg {
+          position: absolute;
+          inset: 0;
+          width: 1700px;
+          height: 330px;
+          overflow: visible;
+        }
+        .ctx-zone {
+          position: absolute;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 22px;
+          letter-spacing: 0.3em;
+          color: #8f98aa;
+        }
+        #ctx-zone9 { left: 40px; top: 100px; }
+        #ctx-zone10 { left: 40px; top: 176px; }
+        .ctx-st {
+          position: absolute;
+          top: 0;
+          width: 220px;
+          margin-left: -110px;
+          height: 330px;
+          text-align: center;
+        }
+        .ctx-st-name {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 218px;
+          font-weight: 700;
+          font-size: 26px;
+          letter-spacing: -0.01em;
+        }
+        .ctx-st-id {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 256px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 20px;
+          color: #8b95a7;
+        }
+        .ctx-gap {
+          position: absolute;
+          top: 46px;
+          width: 160px;
+          margin-left: -80px;
+          text-align: center;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 22px;
+          color: #8b95a7;
+        }
+        .ctx-end {
+          position: absolute;
+          top: 46px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 20px;
+          color: #8b95a7;
+          width: 260px;
+        }
+        #ctx-end-s { left: 0; }
+        #ctx-end-n { right: 0; text-align: right; }
+        #ctx-split {
+          position: absolute;
+          left: 150px;
+          top: 770px;
+          width: 1620px;
+          height: 200px;
+          display: flex;
+          gap: 28px;
+          align-items: stretch;
+        }
+        .ctx-card {
+          flex: 1;
+          border-radius: 22px;
+          background: #121722;
+          border: 3px solid #232a38;
+          padding: 30px 40px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 10px;
+        }
+        #ctx-card-fijo { border-color: #ff9f43; }
+        #ctx-card-rl { border-color: #2ee6a6; }
+        .ctx-card-k {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 22px;
+          letter-spacing: 0.16em;
+        }
+        #ctx-card-fijo .ctx-card-k { color: #ff9f43; }
+        #ctx-card-rl .ctx-card-k { color: #2ee6a6; }
+        .ctx-card-t {
+          font-weight: 900;
+          font-size: 46px;
+          letter-spacing: -0.02em;
+        }
+        #ctx-same {
+          flex: 0 0 360px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+          gap: 8px;
+        }
+        #ctx-same-big {
+          font-weight: 900;
+          font-size: 40px;
+          line-height: 1.1;
+        }
+        .ctx-l {
+          display: block;
+        }
+        #ctx-same-small {
+          font-size: 24px;
+          color: #a9b3c5;
+        }
+      </style>
+
+      <div id="root" data-composition-id="context" data-width="1920" data-height="1080" data-duration="9.5">
+        <div id="ctx-bg"></div>
+        <div id="ctx-head">
+          <div id="ctx-kicker">El escenario</div>
+          <div id="ctx-title">Las 5 intersecciones del corredor</div>
+          <div id="ctx-sub">1.65 km de sur a norte · zona 9 / zona 10 · simulado en SUMO · 5 semáforos = 5 agentes</div>
+        </div>
+
+        <div id="ctx-map">
+          <svg viewBox="0 0 1700 330">
+            <!-- línea del corredor (sur a la izquierda, norte a la derecha; distancias reales) -->
+            <path id="ctx-line-bg" d="M 40 150 L 1660 150" stroke="#232a38" stroke-width="22" stroke-linecap="round" fill="none" />
+            <path id="ctx-line" d="M 40 150 L 1660 150" stroke="#2ee6a6" stroke-width="10" stroke-linecap="round" fill="none" />
+            <!-- transversales de una vía: arriba = hacia el oeste (zona 9), abajo = hacia el este (zona 10) -->
+            <g id="ctx-cross" stroke="#8b95a7" stroke-width="6" stroke-linecap="round" fill="none">
+              <path class="ctx-x" d="M 274 205 L 274 95 M 260 112 L 274 95 L 288 112" />
+              <path class="ctx-x" d="M 396 95 L 396 205 M 382 188 L 396 205 L 410 188" />
+              <path class="ctx-x" d="M 690 95 L 690 205 M 676 188 L 690 205 L 704 188" />
+              <path class="ctx-x" d="M 978 205 L 978 95 M 964 112 L 978 95 L 992 112" />
+              <path class="ctx-x" d="M 1512 95 L 1512 205 M 1498 188 L 1512 205 L 1526 188" />
+            </g>
+            <g id="ctx-nodes">
+              <circle class="ctx-node" cx="274" cy="150" r="22" fill="#0b0e14" stroke="#e8ecf3" stroke-width="7" />
+              <circle class="ctx-node" cx="396" cy="150" r="22" fill="#0b0e14" stroke="#e8ecf3" stroke-width="7" />
+              <circle class="ctx-node" cx="690" cy="150" r="22" fill="#0b0e14" stroke="#e8ecf3" stroke-width="7" />
+              <circle class="ctx-node" cx="978" cy="150" r="22" fill="#0b0e14" stroke="#e8ecf3" stroke-width="7" />
+              <circle class="ctx-node" cx="1512" cy="150" r="22" fill="#0b0e14" stroke="#e8ecf3" stroke-width="7" />
+            </g>
+          </svg>
+          <div class="ctx-zone" id="ctx-zone9">ZONA 9</div>
+          <div class="ctx-zone" id="ctx-zone10">ZONA 10</div>
+          <div class="ctx-end" id="ctx-end-s">← sur · Obelisco</div>
+          <div class="ctx-end" id="ctx-end-n">5a calle · norte →</div>
+          <div class="ctx-st" style="left: 274px"><div class="ctx-st-name">15 calle</div><div class="ctx-st-id">C15</div></div>
+          <div class="ctx-st" style="left: 396px"><div class="ctx-st-name">14 calle</div><div class="ctx-st-id">C14</div></div>
+          <div class="ctx-st" style="left: 690px"><div class="ctx-st-name">12 calle</div><div class="ctx-st-id">C12</div></div>
+          <div class="ctx-st" style="left: 978px"><div class="ctx-st-name">10a calle</div><div class="ctx-st-id">C10</div></div>
+          <div class="ctx-st" style="left: 1512px"><div class="ctx-st-name">6a calle</div><div class="ctx-st-id">C06</div></div>
+          <div class="ctx-gap" style="left: 335px">123 m</div>
+          <div class="ctx-gap" style="left: 543px">302 m</div>
+          <div class="ctx-gap" style="left: 834px">296 m</div>
+          <div class="ctx-gap" style="left: 1245px">547 m</div>
+        </div>
+
+        <div id="ctx-split">
+          <div class="ctx-card" id="ctx-card-fijo">
+            <div class="ctx-card-k">IZQUIERDA</div>
+            <div class="ctx-card-t">Semáforo fijo</div>
+          </div>
+          <div id="ctx-same">
+            <div id="ctx-same-big"><span class="ctx-l">misma demanda</span><span class="ctx-l">y semilla</span></div>
+            <div id="ctx-same-small">dos SUMO en lock-step</div>
+          </div>
+          <div class="ctx-card" id="ctx-card-rl">
+            <div class="ctx-card-k">DERECHA</div>
+            <div class="ctx-card-t">Agente RL entrenado</div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          const tl = gsap.timeline({ paused: true });
+          const line = document.querySelector("#ctx-line");
+          const len = 1620; // longitud del trazo recto (precalculada)
+          tl.fromTo("#ctx-bg", { opacity: 0 }, { opacity: 1, duration: 1.0, ease: "sine.out" }, 0);
+          tl.fromTo("#ctx-kicker", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.1);
+          tl.fromTo("#ctx-title", { y: 34, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, 0.2);
+          tl.fromTo("#ctx-sub", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" }, 0.45);
+          // svg-path-draw: el corredor se dibuja de sur a norte
+          tl.fromTo(line, { strokeDasharray: len, strokeDashoffset: len }, { strokeDashoffset: 0, duration: 2.0, ease: "power2.inOut" }, 0.7);
+          tl.fromTo("#ctx-line-bg", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 0.6);
+          // estaciones en cascada (waterfall-entry) al paso del trazo
+          const stops = [0.2, 0.27, 0.45, 0.63, 0.95];
+          document.querySelectorAll(".ctx-node").forEach((n, i) => {
+            tl.fromTo(n, { scale: 0, transformOrigin: "50% 50%" }, { scale: 1, duration: 0.45, ease: "back.out(2.2)" }, 0.7 + stops[i] * 2.0);
+          });
+          document.querySelectorAll(".ctx-x").forEach((n, i) => {
+            tl.fromTo(n, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "sine.out" }, 0.85 + stops[i] * 2.0);
+          });
+          document.querySelectorAll(".ctx-st").forEach((n, i) => {
+            tl.fromTo(n, { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.8 + stops[i] * 2.0);
+          });
+          tl.fromTo(".ctx-gap", { opacity: 0, y: -10 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.12, ease: "power2.out" }, 2.8);
+          tl.fromTo(".ctx-zone, .ctx-end", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "sine.out" }, 2.9);
+          // fijo vs RL
+          tl.fromTo("#ctx-card-fijo", { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 4.0);
+          tl.fromTo("#ctx-card-rl", { x: 60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 4.25);
+          tl.fromTo("#ctx-same", { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.8)" }, 4.6);
+          // respiración lenta de la línea mientras se lee
+          tl.to("#ctx-line", { opacity: 0.75, duration: 1.4, ease: "sine.inOut", yoyo: true, repeat: 1 }, 5.4);
+          // salida
+          tl.to("#ctx-head, #ctx-map, #ctx-split", { opacity: 0, duration: 0.45, ease: "power2.in" }, 9.0);
+          window.__timelines["context"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

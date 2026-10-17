@@ -1,0 +1,13 @@
+# Solo las fuentes van a git: el metraje, los renders y los archivos generados quedan fuera.
+media/
+renders/
+snapshots/
+.hyperframes/
+node_modules/
+*.mp4
+*.mov
+*.webm
+# Instrucciones genéricas que escribe `hyperframes init` para agentes
+CLAUDE.md
+AGENTS.md
+.thumbnails/
