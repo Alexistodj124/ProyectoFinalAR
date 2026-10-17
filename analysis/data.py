@@ -17,6 +17,11 @@ RESULTS_DIR = REPO_ROOT / "analysis" / "results"
 # metric -> (label, lower_is_better)
 METRICS = {
     "mean_waiting_time": ("Espera media por vehículo (s)", True),
+    "total_delay": ("Demora total (s/veh)", True),
+    "backlog_pct": ("Backlog de inserción (%)", True),
+    "mean_depart_delay": ("Retraso de inserción medio (s)", True),
+    "loaded": ("Vehículos de la demanda", False),
+    "inserted": ("Vehículos insertados", False),
     "mean_travel_time": ("Tiempo de viaje medio (s)", True),
     "mean_queue": ("Cola media (veh)", True),
     "max_queue": ("Cola máxima (veh)", True),
@@ -25,7 +30,16 @@ METRICS = {
     "max_wait_cross_streets": ("Espera máx. calles transversales (s)", True),
     "co2_kg": ("CO₂ (kg)", True),
 }
-TABLE_METRICS = ["mean_waiting_time", "mean_travel_time", "mean_queue", "throughput_veh_h", "mean_stops"]
+# Tables: wait, total delay and backlog first (wait alone rewards leaving cars outside the network).
+# Metrics absent from old CSVs (before total_delay/backlog_pct existed) are skipped, not an error.
+TABLE_METRICS = ["mean_waiting_time", "total_delay", "backlog_pct", "mean_travel_time", "throughput_veh_h",
+                 "mean_stops", "max_wait_cross_streets"]
+BAR_METRICS = ["mean_waiting_time", "total_delay", "backlog_pct"]
+
+
+def available(df: pd.DataFrame, metrics) -> list[str]:
+    """Metrics of `metrics` that exist in `df` and have at least one value (old CSVs lack the new ones)."""
+    return [m for m in metrics if m in df and df[m].notna().any()]
 
 
 def ci95(x) -> float:
@@ -63,6 +77,9 @@ def load_eval(runs_dir: Path | str = RUNS_DIR, exp: str | None = None) -> pd.Dat
     runs_dir = Path(runs_dir)
     frames = []
     for f in sorted(runs_dir.glob(f"{exp or '*'}/**/eval*.csv")):
+        # eval_summary.csv is a summary; eval_<method>_<scenario>.csv duplicates rows of eval.csv when both exist
+        if f.name.endswith("_summary.csv") or (f.name != "eval.csv" and (f.parent / "eval.csv").exists()):
+            continue
         df = pd.read_csv(f)
         if df.empty or "scenario" not in df:
             continue
@@ -91,7 +108,7 @@ def aggregate(df: pd.DataFrame, metrics: list[str], by=("method", "scenario")) -
     for key, g in d.groupby(by, sort=False):
         key = key if isinstance(key, tuple) else (key,)
         for m in metrics:
-            if m not in g:
+            if m not in g or g[m].isna().all():  # metric absent for this method (old CSV): no row, shown as "-"
                 continue
             per_seed = g.groupby("train_seed")[m].mean()
             vals = per_seed if len(per_seed) > 1 else g[m]

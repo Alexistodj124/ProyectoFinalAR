@@ -89,17 +89,76 @@ def test_max_pressure_actions_valid_and_greedy():
     env.close()
 
 
-def test_max_pressure_movements_follow_green_links():
+def test_max_pressure_lane_sets_follow_green_links():
     pol = load_policy("max_pressure")
-    env, se, _ = _start(pol, "toy_single", num_seconds=60)
+    env, se, _ = _start(pol, "cruce_pico", num_seconds=60)
     (tls,) = se.traffic_signals
     ts = se.traffic_signals[tls]
     links = se.sumo.trafficlight.getControlledLinks(tls)
-    for phase, mv in zip(ts.green_phases, pol.movements[tls]):
-        expected = sum(phase.state[j] in "Gg" for j, g in enumerate(links) for _ in g)
-        assert len(mv) == expected > 0
-        assert all(i in ts.lanes for i, _ in mv)
+    assert len(pol.lanes[tls]) == ts.num_green_phases
+    for phase, (ins, outs) in zip(ts.green_phases, pol.lanes[tls]):
+        green = [lk for j, g in enumerate(links) for lk in g if phase.state[j] in "Gg"]
+        assert set(ins) == {lk[0] for lk in green} and set(outs) == {lk[1] for lk in green}
+        assert len(ins) == len(set(ins)) and len(outs) == len(set(outs))  # cada carril una sola vez
+        assert set(ins) <= set(ts.lanes)
+    # Reforma (~8 enlaces) y transversal (~5): el número de enlaces ya no pesa, solo los carriles distintos
+    n_links = [sum(phase.state[j] in "Gg" for j, g in enumerate(links) for _ in g) for phase in ts.green_phases]
+    n_lanes = [len(i) for i, _ in pol.lanes[tls]]
+    assert max(n_links) > max(n_lanes)
     env.close()
+
+
+def test_max_pressure_is_occupancy_difference_of_unique_lanes():
+    pol = load_policy("max_pressure")
+    env, se, obs = _start(pol, "cruce_pico", seed=1000, num_seconds=600)
+    for _ in range(40):  # 200 s: ya hay autos en la red
+        obs, *_ = env.step(pol.act(obs))
+    (tls,) = se.traffic_signals
+    lane = se.sumo.lane
+    occ = lambda l: lane.getLastStepVehicleNumber(l) * (2.5 + lane.getLastStepLength(l)) / lane.getLength(l)
+    expected = [sum(occ(i) for i in ins) - sum(occ(o) for o in outs) for ins, outs in pol.lanes[tls]]
+    assert pol.pressures(tls) == pytest.approx(expected) and any(abs(e) > 0 for e in expected)
+    env.close()
+
+
+def test_max_pressure_enforces_max_green():
+    pol = load_policy("max_pressure")
+    env, se, obs = _start(pol, "toy_single", num_seconds=60)
+    (tls,) = se.traffic_signals
+    ts = se.traffic_signals[tls]
+    pol.pressures = lambda _: [9.0, 1.0]  # la fase actual (0) sigue siendo la de mayor presión
+    pol.has_demand = lambda _: [True, True]
+    ts.time_since_last_phase_change = ts.yellow_time + ts.max_green - 1
+    assert pol.act(obs)[tls] == 0  # todavía no llega a max_green
+    ts.time_since_last_phase_change = ts.yellow_time + ts.max_green
+    assert pol.act(obs)[tls] == 1  # llegó: pasa a la otra fase porque tiene autos esperando
+    pol.has_demand = lambda _: [True, False]
+    assert pol.act(obs)[tls] == 0  # nadie espera en la otra fase: no hay a dónde ir
+    env.close()
+
+
+def test_max_pressure_max_green_picks_best_other_phase():
+    pol = load_policy("max_pressure")
+    env, se, obs = _start(pol, "cruce_pico", num_seconds=60)
+    (tls,) = se.traffic_signals
+    ts = se.traffic_signals[tls]
+    assert ts.num_green_phases == 3
+    pol.pressures = lambda _: [9.0, -3.0, 2.0]
+    pol.has_demand = lambda _: [True, True, True]
+    ts.time_since_last_phase_change = ts.yellow_time + ts.max_green
+    assert pol.act(obs)[tls] == 2  # entre las otras, la de mayor presión
+    pol.has_demand = lambda _: [True, True, False]
+    assert pol.act(obs)[tls] == 1  # solo las que tienen autos esperando
+    env.close()
+
+
+def test_max_pressure_does_not_gridlock_the_calibrated_intersection():
+    """cruce_pico a 1200 s: antes de arreglarlo, la transversal quedaba sin servicio y la cola salía de la red."""
+    from experiments import evaluate as ev
+
+    df = ev.evaluate(load_policy("max_pressure"), "cruce_pico", seeds=[1000], num_seconds=1200)
+    r = df.iloc[0]
+    assert r["teleported"] == 0 and r["backlog_pct"] < 5 and r["max_wait_cross_streets"] < 400
 
 
 def test_max_pressure_tie_keeps_current_phase():

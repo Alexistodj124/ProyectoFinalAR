@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import logging
 import math
 import os
 import tempfile
@@ -32,6 +33,8 @@ from pathlib import Path
 import numpy as np
 
 from env.scenarios import PROFILES, ROUTE_DIR, Scenario, get_scenario
+
+log = logging.getLogger(__name__)
 
 COUNTS_DIR = Path(__file__).resolve().parent / "conteos"
 CACHE_DIR = ROUTE_DIR / "cache"
@@ -231,44 +234,71 @@ class DemandGenerator:
             vt.setSpeedDeviation("auto", VTYPE["speedDev"])
         return known
 
-    def _add(self, conn, known, vid, ri):
+    def _add(self, conn, known, vid, ri) -> bool:
+        """Add one vehicle; False (and nothing raised) if its route or the vehicle is refused."""
         rid = f"dg_r{ri}"
         if rid not in known:
-            conn.route.add(rid, list(self.route_edges[ri]))
+            if not self._try(conn.route.add, rid, list(self.route_edges[ri])):
+                return False
             known.add(rid)
-        conn.vehicle.add(vid, rid, typeID="auto", depart="now", departLane="best", departSpeed="max")
+        return self._try(conn.vehicle.add, vid, rid, typeID="auto", depart="now", departLane="best", departSpeed="max")
+
+    @staticmethod
+    def _try(fn, *args, **kw) -> bool:
+        """Run one TraCI call; False if SUMO rejects it (e.g. a route through a closed edge). A dead
+        connection is not a per-vehicle problem and is re-raised."""
+        try:
+            fn(*args, **kw)
+            return True
+        except Exception as exc:  # traci.TraCIException / libsumo.TraCIException have no common base here
+            if type(exc).__name__ == "FatalTraCIError":
+                raise
+            log.debug("vehicle skipped: %s", exc)
+            return False
 
     def spawn(self, conn, t: float) -> int:
-        """Inject every arrival in (last t, t] through TraCI connection `conn`; returns #added."""
+        """Inject every arrival in (last t, t] through TraCI connection `conn`; returns #added.
+
+        A vehicle SUMO refuses is skipped on its own. The per-connection cursor advances after every
+        second (and in `finally`), so no second is ever retried and ids are never added twice.
+        """
         key = id(conn)
         known = self._ensure(conn, key)
         start, end = self._cursor.get(key, -1) + 1, int(math.floor(t))
         added = 0
-        for s in range(start, end + 1):
-            for vid, ri in self.arrivals(s):
-                self._add(conn, known, vid, ri)
-                added += 1
-        self._cursor[key] = max(self._cursor.get(key, -1), end)
+        try:
+            for s in range(start, end + 1):
+                for vid, ri in self.arrivals(s):
+                    added += self._add(conn, known, vid, ri)
+                self._cursor[key] = s
+        finally:
+            self._cursor[key] = max(self._cursor.get(key, -1), end)
         return added
 
     def inject(self, conns, edge: str, n: int) -> list[str]:
-        """Web 'inject' command: n vehicles on `edge` (most likely route), same ids in every conn."""
+        """Web 'inject' command: n vehicles on `edge` (most likely route), same ids in every conn.
+
+        Returns the ids that every connection accepted; a refused vehicle is skipped individually.
+        """
         cand = [(lam, ri) for ri, (r, lam) in enumerate(zip(self.route_edges, self.lam)) if edge in r]
         if not cand:
             return []
         ri = max(cand)[1]
         r = self.route_edges[ri]
         ids = [f"inj{self._inject_n + k}" for k in range(n)]
-        self._inject_n += n
+        self._inject_n += n  # ids are consumed even if some vehicle fails: they are never reused
+        ok = set(ids)
         for conn in conns if isinstance(conns, (list, tuple)) else [conns]:
             known = self._ensure(conn, id(conn))
             rid = f"dg_inj_{ri}_{edge}"
-            if rid not in known:
-                conn.route.add(rid, list(r[r.index(edge):]))
+            if rid not in known and self._try(conn.route.add, rid, list(r[r.index(edge):])):
                 known.add(rid)
             for vid in ids:
-                conn.vehicle.add(vid, rid, typeID="auto", depart="now", departLane="best", departSpeed="max")
-        return ids
+                if rid not in known or not self._try(
+                    conn.vehicle.add, vid, rid, typeID="auto", depart="now", departLane="best", departSpeed="max"
+                ):
+                    ok.discard(vid)
+        return [v for v in ids if v in ok]
 
 
 # ------------------------------------------------------------------------- static

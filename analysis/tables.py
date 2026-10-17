@@ -10,11 +10,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from analysis.data import (METRICS, RESULTS_DIR, RUNS_DIR, TABLE_METRICS, aggregate, approach_frame, ci95, load_csv,
-                           load_eval, load_train_logs)
+from analysis.data import (METRICS, RESULTS_DIR, RUNS_DIR, TABLE_METRICS, aggregate, approach_frame, available, ci95,
+                           load_csv, load_eval, load_train_logs)
 
 NOTE = ("Media ± IC95 (t de Student). Réplica = semilla de entrenamiento si el método tiene varias; "
-        "si no, episodios de evaluación. **Negrita** = mejor valor de la columna.")
+        "si no, episodios de evaluación. **Negrita** = mejor valor de la columna. "
+        "Espera = por vehículo insertado; demora total = (espera + retraso de inserción de los insertados + tiempo "
+        "que esperaron afuera los que nunca entraron) / todos los vehículos de la demanda; backlog = % de la "
+        "demanda que no pudo entrar a la red.")
 
 
 def fmt(mean: float, ci: float, digits: int = 2) -> str:
@@ -50,7 +53,10 @@ def metric_table(agg: pd.DataFrame, rows: str, metrics: list[str], filt: dict | 
         if s.empty:
             continue
         lower = METRICS.get(m, ("", True))[1]
-        best = s["mean"].idxmin() if lower else s["mean"].idxmax()
+        if s["mean"].notna().any():  # an all-NaN column (metric missing in some CSVs) has no best
+            best = s["mean"].idxmin() if lower else s["mean"].idxmax()
+        else:
+            best = None
         out[METRICS.get(m, (m,))[0]] = [("**" + fmt(*s.loc[i, ["mean", "ci95"]], digits) + "**") if i == best else
                                          (fmt(*s.loc[i, ["mean", "ci95"]], digits) if i in s.index else "-") for i in out.index]
     return out
@@ -74,7 +80,7 @@ def eval_tables(exp: str, runs_dir=RUNS_DIR, out_dir=RESULTS_DIR, latex=False) -
     df = load_eval(runs_dir, exp)
     if df.empty:
         return []
-    metrics = [m for m in TABLE_METRICS if m in df]
+    metrics = available(df, TABLE_METRICS)
     agg = aggregate(df, metrics)
     secs = [(sc, metric_table(agg, "method", metrics, {"scenario": sc})) for sc in dict.fromkeys(df["scenario"])]
     return _write(f"{exp}_eval", secs, Path(out_dir), latex, f"{exp}: evaluación final")

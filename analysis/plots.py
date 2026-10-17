@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from analysis.data import (FIG_DIR, METRICS, RUNS_DIR, aggregate, approach_frame, load_csv, load_eval,
-                           load_train_logs)
+from analysis.data import (BAR_METRICS, FIG_DIR, METRICS, RUNS_DIR, aggregate, approach_frame, available, load_csv,
+                           load_eval, load_train_logs)
 
 # Okabe-Ito colour-blind safe palette; baselines are always greys.
 PALETTE = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9", "#F0E442", "#000000"]
@@ -59,13 +59,16 @@ def save_fig(fig, name: str, out_dir: Path | str = FIG_DIR) -> list[Path]:
 # ------------------------------------------------------------------ learning curves
 def learning_curves(exp: str, runs_dir=RUNS_DIR, out_dir=FIG_DIR, metrics=("return", "mean_waiting_time"),
                     smooth: int = 1, n_grid: int = 100) -> list[Path]:
-    """Mean +- std band across seeds. Seeds are interpolated on a common x grid
+    """Mean +- std band across seeds, for any train_log.csv column in `metrics` (return, mean_waiting_time,
+    total_delay, backlog_pct...; columns a log lacks are skipped). Seeds are interpolated on a common x grid
     (x = env_steps if logged, else episode), cut at the shortest seed."""
     apply_style()
     logs = load_train_logs(runs_dir, exp)
     if logs.empty:
         return []
-    metrics = [m for m in metrics if m in logs]
+    metrics = available(logs, metrics)
+    if not metrics:
+        return []
     xcol = "env_steps" if "env_steps" in logs else "episode"
     col = colors_for(logs["name"])
     fig, axes = plt.subplots(1, len(metrics), figsize=(5.2 * len(metrics), 3.6), squeeze=False)
@@ -89,11 +92,13 @@ def learning_curves(exp: str, runs_dir=RUNS_DIR, out_dir=FIG_DIR, metrics=("retu
 
 
 # ------------------------------------------------------------------ bars with CI95
-def bar_chart(df: pd.DataFrame, name: str, metrics=("mean_waiting_time", "throughput_veh_h"), out_dir=FIG_DIR,
-              title: str = "") -> list[Path]:
-    """Grouped bars (x = scenario, one bar per method) with 95 % CI error bars, one panel per metric."""
+def bar_chart(df: pd.DataFrame, name: str, metrics=BAR_METRICS, out_dir=FIG_DIR, title: str = "") -> list[Path]:
+    """Grouped bars (x = scenario, one bar per method) with 95 % CI error bars, one panel per metric.
+
+    Default panels: wait (per inserted vehicle), total delay (counts the vehicles that never got in) and
+    backlog %. Metrics missing from the data (old CSVs) are skipped."""
     apply_style()
-    metrics = [m for m in metrics if m in df]
+    metrics = available(df, metrics)
     if df.empty or not metrics:
         return []
     agg = aggregate(df, metrics)
@@ -108,15 +113,15 @@ def bar_chart(df: pd.DataFrame, name: str, metrics=("mean_waiting_time", "throug
             ax.bar(np.arange(len(scenarios)) + (i - (len(methods) - 1) / 2) * w, sub["mean"], w * 0.92,
                    yerr=sub["ci95"].fillna(0), capsize=2.5, color=col[meth], label=meth, error_kw={"lw": 1})
         ax.set_xticks(range(len(scenarios)), scenarios, rotation=20, ha="right")
-        ax.set_ylabel(METRICS[m][0])
-        ax.set_title("↓ menor es mejor" if METRICS[m][1] else "↑ mayor es mejor", fontsize=9)
+        ax.set_ylabel(METRICS.get(m, (m, True))[0])
+        ax.set_title("↓ menor es mejor" if METRICS.get(m, (m, True))[1] else "↑ mayor es mejor", fontsize=9)
     legend_below(fig, axes[0][0])
     if title:
         fig.suptitle(title, y=1.04)
     return save_fig(fig, name, out_dir)
 
 
-def eval_bars(exp: str, runs_dir=RUNS_DIR, out_dir=FIG_DIR, metrics=("mean_waiting_time", "throughput_veh_h")) -> list[Path]:
+def eval_bars(exp: str, runs_dir=RUNS_DIR, out_dir=FIG_DIR, metrics=BAR_METRICS) -> list[Path]:
     df = load_eval(runs_dir, exp)
     return bar_chart(df, f"{exp}_eval_bars", metrics, out_dir, title=f"{exp}: media ± IC95") if not df.empty else []
 
@@ -164,7 +169,7 @@ def robustness_plot(runs_dir=RUNS_DIR, out_dir=FIG_DIR, name: str = "E7_robustne
     """Grouped bars: x = perturbation (variant), bars = methods; one panel per base network."""
     apply_style()
     df = load_csv(runs_dir, "E7/robustness.csv")
-    if df.empty or metric not in df:
+    if df.empty or not available(df, [metric]):
         return []
     bases = list(dict.fromkeys(df.get("base", pd.Series(["all"] * len(df)))))
     if "base" not in df:
@@ -182,7 +187,7 @@ def robustness_plot(runs_dir=RUNS_DIR, out_dir=FIG_DIR, name: str = "E7_robustne
             ax.bar(np.arange(len(variants)) + (i - (len(methods) - 1) / 2) * w, sub["mean"], w * 0.92,
                    yerr=sub["ci95"].fillna(0), capsize=2, color=col[meth], label=meth, error_kw={"lw": 1})
         ax.set_xticks(range(len(variants)), variants, rotation=15)
-        ax.set_ylabel(METRICS[metric][0])
+        ax.set_ylabel(METRICS.get(metric, (metric,))[0])
         ax.set_title(f"E7 generalización ({base})")
     legend_below(fig, axes[0][0])
     return save_fig(fig, name, out_dir)
@@ -194,14 +199,19 @@ def main(argv=None) -> None:
     ap.add_argument("--runs-dir", default=str(RUNS_DIR))
     ap.add_argument("--out-dir", default=str(FIG_DIR))
     ap.add_argument("--smooth", type=int, default=1, help="rolling-mean window (episodes) for learning curves")
+    ap.add_argument("--bar-metrics", nargs="+", default=list(BAR_METRICS), help="eval columns for the bar charts")
+    ap.add_argument("--curve-metrics", nargs="+", default=["return", "mean_waiting_time"],
+                    help="train_log.csv columns for the learning curves (any column)")
+    ap.add_argument("--robust-metric", default="mean_waiting_time", help="column for the E7 chart")
     a = ap.parse_args(argv)
     exp = a.exp.upper()
     if exp == "E7":
-        paths = robustness_plot(a.runs_dir, a.out_dir)
+        paths = robustness_plot(a.runs_dir, a.out_dir, metric=a.robust_metric)
     elif exp == "E8":
         paths = fairness_plot(a.runs_dir, a.out_dir)
     else:
-        paths = eval_bars(exp, a.runs_dir, a.out_dir) + learning_curves(exp, a.runs_dir, a.out_dir, smooth=a.smooth)
+        paths = eval_bars(exp, a.runs_dir, a.out_dir, a.bar_metrics) + learning_curves(
+            exp, a.runs_dir, a.out_dir, metrics=a.curve_metrics, smooth=a.smooth)
     print("\n".join(map(str, paths)) if paths else f"{exp}: no data in {a.runs_dir}")
 
 
