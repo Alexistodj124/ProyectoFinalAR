@@ -8,7 +8,7 @@ Antes de lanzar la matriz completa (E2 a E6 con 5 semillas) hay que comprobar qu
 
 - **Entrenamiento:** semilla 0, `python -m experiments.train --config <cfg> --total-episodes N --run-dir runs/_sanity/<nombre>` con `LIBSUMO_AS_TRACI=1` y `OMP_NUM_THREADS=1`. Hubo como máximo 5 procesos a la vez en la Mac de 10 núcleos.
 - **Episodios:** 40 a 200 por corrida, según la velocidad. El ε y las demás programaciones se escalan con `total_episodes`, así que una corrida corta es una versión comprimida de la larga.
-- **Evaluación:** `experiments.evaluate.evaluate` sobre el escenario de entrenamiento (`cruce_pico` o `reforma_pico`) con las semillas 1000, 1001 y 1002, nunca vistas al entrenar. Las líneas base se evaluaron igual.
+- **Evaluación:** `experiments.evaluate.evaluate` sobre el escenario de entrenamiento (`cruce_pico` o `reforma_pico`) con las semillas 1000, 1001 y 1002, nunca vistas al entrenar. Las líneas base se evaluaron igual. Ojo: esas tres semillas también son las tres primeras de `EVAL_SEEDS` (1000 a 1009), y con estos números se eligieron hiperparámetros, recompensa y presupuesto; por eso no estuvieron estrictamente reservadas para los hiperparámetros de E2 a E6 (ver `docs/informe/informe.md` §9.3). Habría sido más limpio ajustar con `VAL_SEEDS`.
 - **Métricas.** Se reportan la media y el IC95 (t de Student con 3 semillas, así que los intervalos son anchos):
   - `espera`: tiempo de espera medio por vehículo **insertado** (`mean_waiting_time` del contrato §7). Es la métrica oficial de los objetivos.
   - `backlog`: porcentaje de los vehículos del archivo de rutas que SUMO no logró insertar en la hora porque su carril de entrada estaba lleno.

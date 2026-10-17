@@ -6,14 +6,25 @@
 
 Between `start` and `end` (simulation seconds) the lane(s) are closed to `passenger`
 with traci.lane.setDisallowed, and their original permissions are restored afterwards.
-With "edge" and no "lanes", every THROUGH lane but the leftmost one is closed (an accident
-that leaves one through lane open). Turn bays stay open, so every route stays valid (closing
-the through lanes and leaving only a left-turn bay would leave through traffic with no
-connection, and SUMO aborts on "no valid route"). A 1-lane edge is closed completely.
+With "edge" and no "lanes", every THROUGH lane but one is closed (an accident that leaves one
+through lane open). The lane kept open is the leftmost through lane whose closure partners do
+not cut any movement: e.g. on NB_C14_C12 of the cruce the rightmost lane is the only one with
+the right turn, so lanes 1 and 2 are closed and lane 0 (right + through) stays open. Turn bays
+stay open, so every route stays valid (closing every lane with a given connection would leave
+that traffic with no way out, and SUMO aborts on "no valid route" or teleports it). A 1-lane
+edge is closed completely. An edge with no outgoing links at all (a dead-end exit of the
+network) raises ValueError: closing lanes there blocks every vehicle that has to leave
+through it, which is a blockade, not a lane closure.
 The wrapper is transparent: reset/step/agents/spaces/close and any other attribute go
 to the wrapped parallel env.
 """
 from __future__ import annotations
+
+
+def _lane_targets(conn, lane: str) -> tuple[set[str], bool]:
+    """(outgoing edges reachable from `lane`, has a straight link)."""
+    links = conn.lane.getLinks(lane)
+    return {lk[0].rsplit("_", 1)[0] for lk in links}, any(lk[6] == "s" for lk in links)
 
 
 def incident_lanes(conn, incident: dict) -> list[str]:
@@ -23,10 +34,24 @@ def incident_lanes(conn, incident: dict) -> list[str]:
     n = conn.edge.getLaneNumber(edge)
     idx = incident.get("lanes")
     if idx is None:
+        info = [_lane_targets(conn, f"{edge}_{i}") for i in range(n)]
+        needed = set().union(*(t for t, _ in info))  # every movement out of the edge
+        if not needed:
+            raise ValueError(
+                f"incident edge {edge!r} has no outgoing links (dead-end exit): closing its lanes "
+                "would block every vehicle that leaves through it; use the approach edge upstream")
         # through lanes = lanes with a straight ('s') link at the end of the edge
-        through = [i for i in range(n) if any(lk[6] == "s" for lk in conn.lane.getLinks(f"{edge}_{i}"))]
+        through = [i for i in range(n) if info[i][1]]
+        idx = None
         if len(through) >= 2:
-            idx = through[:-1]  # keep the leftmost through lane (and any bay) open
+            for keep in reversed(through):  # prefer keeping the leftmost through lane open
+                closed = [i for i in through if i != keep]
+                still = set().union(*(info[i][0] for i in range(n) if i not in closed))
+                if still >= needed:  # every movement keeps an open lane
+                    idx = closed
+                    break
+            if idx is None:
+                raise ValueError(f"no way to close through lanes of {edge!r} keeping every movement open")
         else:
             idx = range(max(1, n - 1))  # no straight movement: keep the leftmost lane open
     return [f"{edge}_{i}" for i in idx]

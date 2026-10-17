@@ -135,8 +135,9 @@ class Sim:
     # ---- comandos ------------------------------------------------------------
     def set_incident(self, edge_id: str, on: bool) -> None:
         """Cierra o reabre un borde con la convencion de env/incidents.py (E7): se cierran para
-        `passenger` todos los carriles menos el de mas a la izquierda (un borde de 1 carril se
-        cierra por completo). `False` restaura los permisos originales."""
+        `passenger` todos los carriles de paso menos uno, sin cortar ningun movimiento (un borde de
+        1 carril se cierra por completo; un borde de salida sin conexiones da ValueError).
+        `False` restaura los permisos originales."""
         if on:
             if edge_id in self._saved_incidents:
                 return

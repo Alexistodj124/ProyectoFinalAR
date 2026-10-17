@@ -189,3 +189,58 @@ def test_routes_carry_calibrated_vtype():
 
     txt = Path(routes_for("cruce_pico", 0)).read_text()
     assert f'tau="{VTYPE["tau"]}"' in txt and f'sigma="{VTYPE["sigma"]}"' in txt
+
+
+@pytest.mark.parametrize("name, edge, closed, open_", [
+    # corredor: carriles 0 y 1 cerrados, quedan el carril 2 (paso) y la bahía izquierda 3
+    ("reforma_pico", "NB_C12_C10", [0, 1], [2, 3]),
+    # cruce: la aproximación a C12; el carril 0 es el único con giro a la derecha, queda abierto
+    ("cruce_pico", "NB_C14_C12", [1, 2], [0]),
+])
+def test_incident_lanes_keep_one_through_lane_and_every_movement(name, edge, closed, open_):
+    from env.incidents import incident_lanes
+    from env.reforma_env import get_sumo_env, make_parallel_env
+
+    penv = make_parallel_env(name, seed=0, num_seconds=30)
+    penv.reset(seed=0)
+    conn = get_sumo_env(penv).sumo
+    lanes = incident_lanes(conn, {"edge": edge})
+    assert lanes == [f"{edge}_{i}" for i in closed]
+    links = {i: conn.lane.getLinks(f"{edge}_{i}") for i in range(conn.edge.getLaneNumber(edge))}
+    needed = {lk[0].rsplit("_", 1)[0] for ls in links.values() for lk in ls}
+    still = {lk[0].rsplit("_", 1)[0] for i in open_ for lk in links[i]}
+    assert still == needed  # every movement out of the edge keeps an open lane
+    assert sum(any(lk[6] == "s" for lk in links[i]) for i in open_) == 1  # exactly one through lane open
+    penv.close()
+
+
+def test_incident_on_exit_edge_raises():
+    """NB_C12_C10 in the cruce net is the dead-end exit of C12: closing it would block everything."""
+    from env.incidents import incident_lanes
+    from env.reforma_env import get_sumo_env, make_parallel_env
+
+    penv = make_parallel_env("cruce_pico", seed=0, num_seconds=30)
+    penv.reset(seed=0)
+    with pytest.raises(ValueError, match="no outgoing links"):
+        incident_lanes(get_sumo_env(penv).sumo, {"edge": "NB_C12_C10"})
+    penv.close()
+
+
+def test_e7_config_incidents_valid_per_base():
+    """The E7 config gives one incident per base and each one is a valid (non exit) edge."""
+    import yaml
+
+    from env.incidents import incident_lanes
+    from env.reforma_env import get_sumo_env, make_parallel_env
+    from experiments.robustness import resolve_incident
+
+    cfg = yaml.safe_load((Path(__file__).resolve().parents[1] / "experiments/configs/E7/robustness.yaml").read_text())
+    for base in ("cruce", "reforma"):
+        inc = resolve_incident(cfg["incident"], f"{base}_pico", base)
+        penv = make_parallel_env(f"{base}_pico", seed=0, num_seconds=30)
+        penv.reset(seed=0)
+        conn = get_sumo_env(penv).sumo
+        assert len(incident_lanes(conn, inc)) == 2 and conn.edge.getLaneNumber(inc["edge"]) >= 3
+        penv.close()
+    assert resolve_incident(cfg["incident"], "reforma_pico")["edge"] == "NB_C12_C10"
+    assert resolve_incident(cfg["incident"], "cruce_pico")["edge"] == "NB_C14_C12"

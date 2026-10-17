@@ -292,3 +292,48 @@ def test_default_incident_edge_on_grid():
     edge = robustness.default_incident_edge(get_scenario("toy_grid2x2").net_file)
     inc = robustness.resolve_incident(None, "toy_grid2x2")
     assert edge and inc["edge"] == edge and inc["start"] < inc["end"]
+
+
+def test_resolve_incident_per_base_and_single():
+    per = {"cruce": {"edge": "A", "start": 1, "end": 2}, "reforma": {"edge": "B"}}
+    assert robustness.is_per_base(per) and not robustness.is_per_base({"edge": "A"})
+    assert robustness.resolve_incident(per, "cruce_pico", "cruce") == {"edge": "A", "start": 1, "end": 2}
+    assert robustness.resolve_incident(per, "reforma_pico") == {"edge": "B", "start": 900, "end": 2100}
+    assert robustness.resolve_incident({"edge": "C"}, "cruce_pico", "cruce")["edge"] == "C"  # backward compatible
+    with pytest.raises(ValueError):
+        robustness.resolve_incident({"cruce": {"edge": "A"}}, "reforma_pico", "reforma")
+
+
+def test_run_robustness_filters_per_base_incident_and_merge(tmp_path, fake_algo, monkeypatch):
+    seen = []
+    mod = sys.modules["experiments.evaluate"]
+    orig = mod.evaluate
+
+    def ev(policy, scenario, seeds, **kw):
+        seen.append((scenario, kw.get("incident")))
+        return orig(policy, scenario, seeds, **kw)
+
+    monkeypatch.setattr(mod, "evaluate", ev)
+    monkeypatch.setattr(registry, "load_policy", lambda algo, run_dir=None, cfg=None: (algo, run_dir))
+    d = tmp_path / "E3" / "x" / "seed0"
+    d.mkdir(parents=True)
+    (d / "DONE").write_text("{}")
+    cfg = {"variants": ["pico", "pico_incident"], "baselines": ["fixed", "actuated"], "eval_seeds": 2,
+           "incident": {"cruce": {"edge": "c1", "start": 10, "end": 20}, "reforma": {"edge": "r1"}},
+           "learned": [{"label": "d", "algo": "dummy", "base": "cruce", "from": "E3/x/seed0"},
+                       {"label": "m", "algo": "dummy", "base": "reforma", "from": "E3/x/seed0"}]}
+    full = robustness.run_robustness(cfg, tmp_path, tmp_path / "E7" / "robustness.csv")
+    assert ("reforma_pico", {"edge": "r1", "start": 900, "end": 2100}) in seen
+    assert ("cruce_pico", {"edge": "c1", "start": 10, "end": 20}) in seen
+    seen.clear()
+    part = robustness.run_robustness(cfg, tmp_path, tmp_path / "part.csv", bases=["cruce"],
+                                     methods_filter=["d", "fixed"], variants=["pico_incident"])
+    assert set(map(tuple, part[["method", "base", "variant"]].drop_duplicates().to_numpy())) == {
+        ("d", "cruce", "pico_incident"), ("fixed", "cruce", "pico_incident")}
+    assert {s for s, _ in seen} == {"cruce_pico"}
+    part["mean_waiting_time"] = -1.0
+    merged = robustness.merge_rows(part, tmp_path / "E7" / "robustness.csv")
+    assert len(merged) == len(full) and list(merged.columns) == list(full.columns)
+    hit = merged["variant"].eq("pico_incident") & merged["base"].eq("cruce") & merged["method"].isin(["d", "fixed"])
+    assert (merged.loc[hit, "mean_waiting_time"] == -1).all() and (merged.loc[~hit, "mean_waiting_time"] != -1).all()
+    assert (tmp_path / "E7" / "robustness_summary.csv").exists()
