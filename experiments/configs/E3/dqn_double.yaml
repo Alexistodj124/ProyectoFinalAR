@@ -4,16 +4,18 @@ algo: dqn
 name: dqn_double
 scenario: cruce_pico
 seed: 0            # train.py lo sobreescribe con --seed (5 semillas en Colab)
-total_episodes: 100   # 100 x 720 pasos = 72 000 pasos de entorno (igual para todos)
+total_episodes: 200   # 200 x 720 pasos = 144 000 pasos de entorno (igual para todos)
 num_seconds: 3600
 hparams:
+  reward_fn: diff-waiting-time-pending   # entrenamiento: espera + backlog de insercion (agents/rewards.py)
+  reward_scale: 0.1
   double: true
   dueling: false
   per: false
-  lr: 0.001
+  lr: 0.00025
   buffer_size: 50000
   batch_size: 64
-  target_update: 500
+  target_update: 2000
   eps_start: 1.0
   eps_end: 0.05
   eps_fraction: 0.5

@@ -4,9 +4,11 @@ algo: ppo
 name: ppo
 scenario: cruce_pico
 seed: 0            # train.py lo sobreescribe con --seed
-total_episodes: 100   # 100 x 720 pasos = 72 000 pasos de entorno (igual que DQN)
+total_episodes: 200   # 200 x 720 pasos = 144 000 pasos de entorno (igual que DQN)
 num_seconds: 3600
 hparams:
+  reward_fn: diff-waiting-time-pending   # entrenamiento: espera + backlog de insercion (agents/rewards.py)
+  norm_reward: true    # VecNormalize solo de la recompensa
   n_steps: 720        # un episodio de 3600 s con delta_time 5 s
   batch_size: 64
   n_epochs: 10

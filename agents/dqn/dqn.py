@@ -19,6 +19,7 @@ import torch
 import torch.nn.functional as F
 
 from agents.base import Policy
+from agents.rewards import DEFAULT_TRAIN_REWARD, train_env_kwargs
 from agents.dqn.buffers import PrioritizedReplayBuffer, ReplayBuffer
 from agents.dqn.networks import make_q_network
 from env.reforma_env import make_gym_env
@@ -26,10 +27,10 @@ from env.scenarios import get_scenario
 from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
 
 DEFAULTS = dict(
-    lr=1e-3,
+    lr=2.5e-4,  # 1e-3 forgot the good policy late in 200-episode runs (backlog came back)
     buffer_size=50_000,
     batch_size=64,
-    target_update=500,  # env steps between hard copies online -> target
+    target_update=2000,  # env steps between hard copies online -> target (~2.8 episodes)
     eps_start=1.0,
     eps_end=0.05,
     eps_fraction=0.5,  # epsilon decays linearly during this fraction of total steps
@@ -44,8 +45,10 @@ DEFAULTS = dict(
     per_alpha=0.6,
     per_beta0=0.4,  # beta is annealed beta0 -> 1 over the whole training
     obs_norm=False,
+    reward_scale=0.1,  # r' = reward_scale * r in the TD target (logged return unscaled); 0.1 as in agents/marl
     device="auto",  # "auto" = cuda if available, "cpu" forces cpu
     save_every=10,  # episodes between model.pt checkpoints (0 = only at the end)
+    reward_fn=DEFAULT_TRAIN_REWARD,  # training reward: diff-waiting-time + insertion backlog (agents/rewards.py)
 )
 
 
@@ -94,7 +97,7 @@ def train(cfg: dict) -> str:
     total_episodes = int(cfg.get("total_episodes", 100))
     total_steps = total_episodes * steps_per_ep
 
-    env = make_gym_env(sc, seed, num_seconds=num_seconds)
+    env = make_gym_env(sc, seed, num_seconds=num_seconds, **train_env_kwargs(hp))
     obs_dim = int(np.prod(env.observation_space.shape))
     n_actions = int(env.action_space.n)
 
@@ -152,7 +155,7 @@ def train(cfg: dict) -> str:
             next_obs, reward, terminated, truncated, info = env.step(action)
             # Store only `terminated` as "done": a time-limit truncation is not a real
             # terminal state, so the target must still bootstrap from next_obs.
-            buffer.add(obs, action, reward, next_obs, terminated)
+            buffer.add(obs, action, hp["reward_scale"] * reward, next_obs, terminated)
             obs = next_obs
             done = terminated or truncated
             ep_return += reward

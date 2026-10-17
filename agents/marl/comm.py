@@ -15,7 +15,7 @@ Design (DIAL-style, Foerster et al. 2016, on top of the joint Q learner of qmix.
   sender's encoder (differentiable channel, DIAL). Optional Gaussian noise on the
   channel during training (``msg_noise``) plays the role of DIAL's regularizing unit.
 * The learner is the joint Double-Q learner of qmix.py with ``mixer: none`` by
-  default (independent TD losses on local rewards = IDQN-like, so E6 compares
+  default (independent TD losses on the team reward = IDQN-like, so E6 compares
   "hand-crafted neighbor queues" (idqn neighbor_obs) vs "learned messages");
   ``mixer: qmix`` gives QMIX + communication.
 * Execution stays decentralized: each agent only needs its neighbors' messages.
@@ -32,7 +32,7 @@ from agents.marl.qmix import load_joint_policy, train_joint
 DEFAULTS = {
     **QMIX_DEFAULTS,
     "mixer": "none",
-    "reward": "local",
+    "reward": "team",  # same reward as IDQN / QMIX / MAPPO (local rewards let spillback go unpunished)
     "msg_dim": 6,
     "msg_hidden": 64,
     "msg_noise": 0.0,
