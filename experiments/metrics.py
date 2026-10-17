@@ -6,12 +6,16 @@ Convenciones (iguales para todos los métodos, así la comparación es justa):
   acumuladas). Ignorar los atascados haría ver mejor a las políticas que congestionan la red.
 - Cola = vehículos detenidos (v < 0.1 m/s) en todos los carriles de entrada de todos los semáforos.
 - Aproximación = arista donde el vehículo entra a la red (`departLane` del tripinfo).
+- `mean_waiting_time` solo promedia sobre los INSERTADOS, así que un método puede "ganar" dejando autos
+  fuera de la red (docs/ajuste_aprendizaje.md §3). Por eso cada fila trae también `loaded`, `inserted`,
+  `backlog_pct`, `mean_depart_delay` y `total_delay`, que cuenta a todos los vehículos de la demanda.
 """
 from __future__ import annotations
 
 import json
 import xml.etree.ElementTree as ET
 from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -31,7 +35,7 @@ def ci95(values) -> float:
 
 # ---------------------------------------------------------------------------------------- tripinfo
 def parse_tripinfo(path: str) -> pd.DataFrame:
-    """Una fila por vehículo: id, depart, approach, waitingTime, duration, stops, arrival, finished, co2_mg."""
+    """Una fila por vehículo: id, depart, approach, waitingTime, duration, departDelay, stops, arrival, finished, co2_mg."""
     rows = []
     for _, el in ET.iterparse(path, events=("end",)):
         if el.tag != "tripinfo":
@@ -45,6 +49,7 @@ def parse_tripinfo(path: str) -> pd.DataFrame:
                 "approach": el.get("departLane", "").rsplit("_", 1)[0],
                 "waitingTime": float(el.get("waitingTime", 0)),
                 "duration": float(el.get("duration", 0)),
+                "departDelay": max(0.0, float(el.get("departDelay", 0))),  # SUMO escribe -1 si no aplica
                 "stops": float(el.get("waitingCount", 0)),
                 "arrival": arrival,
                 "finished": arrival >= 0,
@@ -54,7 +59,8 @@ def parse_tripinfo(path: str) -> pd.DataFrame:
         el.clear()
     return pd.DataFrame(
         rows,
-        columns=["id", "depart", "approach", "waitingTime", "duration", "stops", "arrival", "finished", "co2_mg"],
+        columns=["id", "depart", "approach", "waitingTime", "duration", "departDelay", "stops", "arrival", "finished",
+                 "co2_mg"],
     )
 
 
@@ -96,6 +102,56 @@ def cross_approaches(net_file: str, trips: pd.DataFrame) -> set[str]:
     return {e for e in used if info.get(e, {}).get("axis") == cross_axis}
 
 
+# ------------------------------------------------------------------------------ demanda no insertada
+@lru_cache(maxsize=16)
+def _scheduled_departures(route_file: str, mtime_ns: int) -> dict[str, float]:
+    """{id: depart programado} de los <vehicle>/<trip> de un .rou.xml (ignora depart no numérico)."""
+    out = {}
+    for _, el in ET.iterparse(route_file, events=("end",)):
+        if el.tag in ("vehicle", "trip") and el.get("id") is not None:
+            try:
+                out[el.get("id")] = float(el.get("depart"))
+            except (TypeError, ValueError):
+                pass
+        if el.tag in ("vehicle", "trip", "flow", "route"):
+            el.clear()
+    return out
+
+
+def scheduled_departures(route_file: str | None) -> dict[str, float]:
+    """Salidas programadas de un archivo de rutas. {} si no hay archivo o solo trae <flow> (toy), porque
+    entonces la demanda no se puede enumerar de antemano."""
+    if not route_file or not Path(route_file).exists():
+        return {}
+    return _scheduled_departures(str(route_file), Path(route_file).stat().st_mtime_ns)
+
+
+def demand_metrics(trips: pd.DataFrame, departs: dict[str, float], num_seconds: float) -> dict:
+    """Backlog y demora total (docs/ajuste_aprendizaje.md §1).
+
+    loaded  = vehículos del archivo de rutas con depart < num_seconds (más los insertados, por si el archivo
+              no se puede enumerar: entonces loaded = inserted y no hay backlog que medir).
+    total_delay = [ sum_insertados (waitingTime + departDelay) + sum_nunca_insertados (num_seconds - depart) ]
+                  / loaded.
+    Un vehículo que nunca entró se cuenta como si hubiera esperado fuera de la red hasta el final: no se
+    puede reducir `total_delay` dejando autos afuera.
+    """
+    inserted_ids = set(trips["id"]) if len(trips) else set()
+    due = {v: d for v, d in departs.items() if d < num_seconds}
+    never = {v: d for v, d in due.items() if v not in inserted_ids}
+    n_ins = len(trips)
+    loaded = len(never) + n_ins
+    delay_in = float((trips["waitingTime"] + trips["departDelay"]).sum()) if n_ins else 0.0
+    delay_out = float(sum(num_seconds - d for d in never.values()))
+    return {
+        "loaded": loaded,
+        "inserted": n_ins,
+        "backlog_pct": 100.0 * len(never) / loaded if loaded else 0.0,
+        "mean_depart_delay": float(trips["departDelay"].mean()) if n_ins else 0.0,
+        "total_delay": (delay_in + delay_out) / loaded if loaded else float("nan"),
+    }
+
+
 # ------------------------------------------------------------------------------ muestreo durante el episodio
 class EpisodeProbe:
     """Mide colas (cada paso del agente) y teletransportes (cada segundo de SUMO) durante un episodio."""
@@ -122,8 +178,13 @@ class EpisodeProbe:
         self.queue_samples.append(sum(lane.getLastStepHaltingNumber(ln) for ln in self._lanes))
 
 
-def episode_metrics(trips: pd.DataFrame, probe: EpisodeProbe, net_file: str, num_seconds: float) -> dict:
-    """Columnas métricas de una fila de evaluate() (sin method/scenario/seed)."""
+def episode_metrics(
+    trips: pd.DataFrame, probe: EpisodeProbe, net_file: str, num_seconds: float, route_file: str | None = None
+) -> dict:
+    """Columnas métricas de una fila de evaluate() (sin method/scenario/seed).
+
+    `route_file` es el .rou.xml del episodio; sin él (o con flujos probabilísticos) `loaded` = insertados.
+    """
     q = np.asarray(probe.queue_samples, dtype=float)
     arrived = int(trips["finished"].sum()) if len(trips) else 0
     cross = cross_approaches(net_file, trips)
@@ -141,4 +202,5 @@ def episode_metrics(trips: pd.DataFrame, probe: EpisodeProbe, net_file: str, num
         "co2_kg": float(trips["co2_mg"].sum()) / 1e6,
         "arrived": arrived,
         "teleported": int(probe.teleported),
+        **demand_metrics(trips, scheduled_departures(route_file), num_seconds),
     }

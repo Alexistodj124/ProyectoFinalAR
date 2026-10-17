@@ -31,7 +31,7 @@ from experiments.metrics import EpisodeProbe, ci95, episode_metrics, parse_tripi
 COLUMNS = [
     "method", "scenario", "seed", "mean_waiting_time", "mean_travel_time", "mean_queue", "max_queue",
     "throughput_veh_h", "mean_stops", "p95_wait_by_approach", "max_wait_cross_streets", "co2_kg", "arrived",
-    "teleported",
+    "teleported", "loaded", "inserted", "backlog_pct", "mean_depart_delay", "total_delay",
 ]  # fmt: skip
 BASELINES_ALL = ["fixed", "actuated", "max_pressure"]  # E1
 METRICS = [c for c in COLUMNS if c not in ("method", "scenario", "seed", "p95_wait_by_approach")]
@@ -55,6 +55,7 @@ def run_episode(policy, sc: Scenario, seed: int, num_seconds: int, incident: dic
         sumo_env = get_sumo_env(env)
         policy.reset(sumo_env)
         probe.attach(sumo_env)
+        route_file = getattr(sumo_env, "_route", None)
         done = False
         while not done:
             # fixed_ts: sumo-rl ignora las acciones, pero el wrapper paralelo exige una por agente.
@@ -64,7 +65,8 @@ def run_episode(policy, sc: Scenario, seed: int, num_seconds: int, incident: dic
             done = all(truncated.values()) or not env.agents
     finally:
         env.close()  # SUMO escribe el tripinfo (con los vehículos sin terminar) al cerrar
-    return episode_metrics(parse_tripinfo(trip_path), probe, sc.net_file, num_seconds)
+    # `_route` es el .rou.xml de ESTE episodio (el wrapper de la demanda lo regenera en reset(seed=...)).
+    return episode_metrics(parse_tripinfo(trip_path), probe, sc.net_file, num_seconds, route_file)
 
 
 def evaluate(
@@ -76,10 +78,12 @@ def evaluate(
     incident: dict | None = None,
     out_dir: str | None = None,
     method: str | None = None,
+    keep_tripinfo: bool = True,
 ) -> pd.DataFrame:
     """Evalúa `policy` en `scenario` con cada semilla de `seeds`. Devuelve un DataFrame con COLUMNS.
 
-    Si `out_dir` existe se guardan ahí el tripinfo de cada episodio (tripinfo/) y eval_<método>_<escenario>.csv.
+    Si `out_dir` existe se guarda ahí eval_<método>_<escenario>.csv y, con `keep_tripinfo`, el tripinfo de
+    cada episodio (tripinfo/, unos MB por episodio en reforma_*).
     """
     sc = get_scenario(scenario)
     if hasattr(policy, "prepare_scenario"):  # p. ej. el actuado genera su programa si falta
@@ -88,7 +92,7 @@ def evaluate(
     n_sec = num_seconds or sc.num_seconds
     rows = []
     with tempfile.TemporaryDirectory() as tmp:
-        trip_dir = Path(out_dir) / "tripinfo" if out_dir else Path(tmp)
+        trip_dir = Path(out_dir) / "tripinfo" if (out_dir and keep_tripinfo) else Path(tmp)
         trip_dir.mkdir(parents=True, exist_ok=True)
         for seed in seeds:
             trip = trip_dir / f"{method}_{sc.name}_{seed}.xml"
@@ -96,6 +100,7 @@ def evaluate(
             rows.append({"method": method, "scenario": sc.name, "seed": int(seed), **m})
     df = pd.DataFrame(rows, columns=COLUMNS)
     if out_dir:
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
         df.to_csv(Path(out_dir) / f"eval_{method}_{sc.name}.csv", index=False)
     return df
 
@@ -116,7 +121,10 @@ def summarize(df: pd.DataFrame, by=("method", "scenario")) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
-def format_summary(s: pd.DataFrame, metrics=("mean_waiting_time", "mean_travel_time", "mean_queue", "throughput_veh_h")):
+def format_summary(
+    s: pd.DataFrame,
+    metrics=("mean_waiting_time", "total_delay", "backlog_pct", "mean_travel_time", "mean_queue", "throughput_veh_h"),
+):
     """Tabla legible 'media ± IC95' para imprimir."""
     t = s[[c for c in s.columns if not c.endswith(("_mean", "_ci95"))]].copy()
     for m in metrics:
@@ -126,18 +134,30 @@ def format_summary(s: pd.DataFrame, metrics=("mean_waiting_time", "mean_travel_t
 
 
 # --------------------------------------------------------------------------------------------- CLI
+def resolve_run(run: str | None) -> str | None:
+    """Si `run` trae best/ (el checkpoint elegido con las semillas de validación), se carga de ahí."""
+    if run and (Path(run) / "best").is_dir():
+        return str(Path(run) / "best")
+    return run
+
+
 def _load(algo: str, run: str | None):
     from agents.registry import BASELINES, load_policy
 
     name = algo
     if algo not in BASELINES and run:
-        cfg_path = Path(run) / "config.yaml"
+        cfg_path = Path(run) / "config.yaml"  # el config.yaml está en el run_dir, no en best/
         if cfg_path.exists():
             name = yaml.safe_load(cfg_path.read_text()).get("name", algo)  # p. ej. dqn_double
+        load_from = resolve_run(run)
+        print(f"[evaluate] {name}: cargando de {load_from}" + (" (best/)" if load_from != run else " (último episodio)"))
+        return load_policy(algo, load_from), name
     return load_policy(algo, run), name
 
 
-def run_methods(methods: list[dict], scenarios: list[str], seeds, num_seconds, incident=None, out_dir=None):
+def run_methods(
+    methods: list[dict], scenarios: list[str], seeds, num_seconds, incident=None, out_dir=None, keep_tripinfo=False
+):
     """methods: [{"algo", "run" (opcional), "name" (opcional)}]. Devuelve el DataFrame de todos."""
     dfs = []
     for m in methods:
@@ -146,7 +166,10 @@ def run_methods(methods: list[dict], scenarios: list[str], seeds, num_seconds, i
         for scn in scenarios:
             print(f"[evaluate] {label} @ {scn} ({len(list(seeds))} semillas)", flush=True)
             dfs.append(
-                evaluate(policy, scn, seeds, num_seconds=num_seconds, incident=incident, out_dir=out_dir, method=label)
+                evaluate(
+                    policy, scn, seeds, num_seconds=num_seconds, incident=incident, out_dir=out_dir, method=label,
+                    keep_tripinfo=keep_tripinfo,
+                )
             )
     return pd.concat(dfs, ignore_index=True)
 
@@ -160,7 +183,8 @@ def main(argv=None):
     ap.add_argument("--seeds", nargs="+", type=int, help="por defecto EVAL_SEEDS (1000..1009)")
     ap.add_argument("--num-seconds", type=int)
     ap.add_argument("--out", help="CSV de salida (el resumen va en <out>_summary.csv)")
-    ap.add_argument("--out-dir", help="carpeta de salida: escribe <out-dir>/eval.csv (lo usa run_matrix)")
+    ap.add_argument("--out-dir", help="carpeta de salida: eval.csv (lo usa run_matrix) y eval_<método>_<escenario>.csv")
+    ap.add_argument("--keep-tripinfo", action="store_true", help="con --out-dir, guarda también el tripinfo.xml de cada episodio")
     ap.add_argument("--no-libsumo", action="store_true", help="usa TraCI en vez de libsumo")
     a = ap.parse_args(argv)
 
@@ -175,7 +199,10 @@ def main(argv=None):
     if not methods or not scenarios:
         ap.error("hace falta --algo/--scenarios o --config")
 
-    df = run_methods(methods, scenarios, seeds, num_seconds, incident=cfg.get("incident"))
+    df = run_methods(
+        methods, scenarios, seeds, num_seconds, incident=cfg.get("incident"), out_dir=a.out_dir,
+        keep_tripinfo=a.keep_tripinfo,
+    )
     summ = summarize(df)
     print(format_summary(summ).to_string(index=False))
     if out:
