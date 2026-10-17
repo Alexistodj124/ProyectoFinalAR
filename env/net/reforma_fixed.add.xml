@@ -1,0 +1,43 @@
+<additional>
+<!-- PROVISIONAL: ciclo comun de 110 s 'medido en campo' SINTETICO. Reparto de verde
+     proporcional a la demanda (Webster, conteos env/conteos/pico.csv) y offsets de onda verde
+     hacia el norte a 40 km/h. Reemplazar por los tiempos cronometrados (PLAN 6.1). -->
+    <tlLogic id="C15" type="static" programID="fixed" offset="0">
+        <phase duration="83" state="GGGGGGGgrrrr"/>
+        <phase duration="3" state="yyyyyyyyrrrr"/>
+        <phase duration="21" state="rrrrrrrrGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyy"/>
+    </tlLogic>
+    <tlLogic id="C14" type="static" programID="fixed" offset="11">
+        <phase duration="61" state="GGGGGGGgrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrr"/>
+        <phase duration="21" state="rrrGGGrGrrrr"/>
+        <phase duration="3" state="rrryyyryrrrr"/>
+        <phase duration="19" state="rrrrrrrrGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyy"/>
+    </tlLogic>
+    <tlLogic id="C12" type="static" programID="fixed" offset="38">
+        <phase duration="52" state="GGGGGGGgrrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrrr"/>
+        <phase duration="25" state="rrrGGGrGrrrrr"/>
+        <phase duration="3" state="rrryyyryrrrrr"/>
+        <phase duration="24" state="rrrrrrrrGGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyyy"/>
+    </tlLogic>
+    <tlLogic id="C10" type="static" programID="fixed" offset="65">
+        <phase duration="54" state="GGGGGGGgrrrrr"/>
+        <phase duration="3" state="GGGyyyygrrrrr"/>
+        <phase duration="29" state="GGGrrrrGrrrrr"/>
+        <phase duration="3" state="yyyrrrryrrrrr"/>
+        <phase duration="18" state="rrrrrrrrGGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyyy"/>
+    </tlLogic>
+    <tlLogic id="C06" type="static" programID="fixed" offset="4">
+        <phase duration="49" state="GGGGGGGgrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrr"/>
+        <phase duration="32" state="rrrGGGrGrrrr"/>
+        <phase duration="3" state="rrryyyryrrrr"/>
+        <phase duration="20" state="rrrrrrrrGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyy"/>
+    </tlLogic>
+</additional>

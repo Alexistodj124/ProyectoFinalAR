@@ -1,0 +1,13 @@
+<additional>
+<!-- PROVISIONAL: ciclo comun de 110 s 'medido en campo' SINTETICO. Reparto de verde
+     proporcional a la demanda (Webster, conteos env/conteos/pico.csv) y offsets de onda verde
+     hacia el norte a 40 km/h. Reemplazar por los tiempos cronometrados (PLAN 6.1). -->
+    <tlLogic id="C12" type="static" programID="fixed" offset="0">
+        <phase duration="52" state="GGGGGGGgrrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrrr"/>
+        <phase duration="25" state="rrrGGGrGrrrrr"/>
+        <phase duration="3" state="rrryyyryrrrrr"/>
+        <phase duration="24" state="rrrrrrrrGGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyyy"/>
+    </tlLogic>
+</additional>
