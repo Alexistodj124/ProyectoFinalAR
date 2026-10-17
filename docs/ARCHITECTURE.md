@@ -16,7 +16,7 @@ Este archivo fija las interfaces que comparten todas las ramas. Si un módulo cu
   - `reforma_{pico,mediodia,pico_x13,noche}`: el corredor completo, `env/net/reforma.net.xml` (4–5 TLS).
   - `cruce_{pico,...}`: el cruce más cargado recortado del corredor, `env/net/cruce.net.xml` (1 TLS).
   - Cada red `X.net.xml` trae `X_fixed.add.xml` (programa de tiempo fijo "medido", el `programID` lo define la rama del entorno) y `X_actuated.add.xml` (programa `actuated`).
-- Semillas: `TRAIN_SEEDS = [0..4]`, `VAL_SEEDS = [2000..2004]` y `EVAL_SEEDS = [1000..1009]`, que nunca se mezclan. `VAL_SEEDS` (se agrega a `env/scenarios.py` en la rama de checkpoints) se usa **solo** para elegir el mejor checkpoint de una corrida (ver §6); la tabla final de resultados usa siempre `EVAL_SEEDS`.
+- Semillas: `TRAIN_SEEDS = [0..4]`, `VAL_SEEDS = [2000..2004]` y `EVAL_SEEDS = [1000..1009]`, que nunca se mezclan. `VAL_SEEDS` (en `env/scenarios.py`) se usa **solo** para elegir el mejor checkpoint de una corrida (ver §6; la matriz usa las dos primeras, 2000 y 2001, con `val_seeds: 2`); la tabla final de resultados usa siempre `EVAL_SEEDS`.
 - `get_topology(net_file) -> {"order", "neighbors", "xy"}`: cadena de semáforos ordenados a lo largo del corredor. Sirve para observar a los vecinos y para la comunicación.
 
 ## 2. Fábrica de entornos (`env/reforma_env.py`, ya en `main`)
@@ -76,14 +76,14 @@ algo: dqn
 name: dqn_double        # opcional, por defecto = algo
 scenario: cruce_pico
 seed: 0                 # train.py lo puede sobreescribir con --seed
-total_episodes: 100     # presupuesto igual para todos (PLAN §8)
+total_episodes: 200     # presupuesto igual para todos (PLAN §8): 200 x 720 = 144 000 decisiones
 num_seconds: 3600       # se baja para pruebas rápidas
 hparams: {...}          # propios del algoritmo
 eval: {scenarios: [cruce_pico, cruce_mediodia], every_episodes: 10, episodes: 3}
 ```
 `run_dir` por defecto: `runs/<exp>/<name>/seed<seed>/`. Adentro van: `config.yaml` (resuelto), `train_log.csv` (una fila por episodio con `episode, env_steps, return, mean_waiting_time, wall_time`), el modelo final (`model.pt` / `qtable.npz` / etc., el del **último** episodio) y los eventos de TensorBoard en `tb/`.
 
-**Selección de checkpoint** (rama `feat/checkpoints-validacion`, en curso): durante el entrenamiento se guardan `run_dir/checkpoints/ep<N>/` y se evalúan con `VAL_SEEDS = 2000..2004`; el mejor se copia a `run_dir/best/`. La política final de un experimento es la de `best/`, no la del último episodio (las curvas de DQN y de los métodos MARL de valor oscilan incluso con ε = 0.05). `python -m experiments.evaluate --run <run_dir>` carga de `<run_dir>/best` si existe y lo imprime; si no, usa el modelo del último episodio. Las semillas de validación nunca entran en las tablas finales: eso sigue siendo `EVAL_SEEDS`.
+**Selección de checkpoint** (ya en `main`; detalle en `experiments/configs/README.md`): durante el entrenamiento se guardan `run_dir/checkpoints/ep<N>/` (cada `eval.every_episodes`, 20 en la matriz) y al final se evalúan con `VAL_SEEDS[:eval.val_seeds]` (2000 y 2001 en la matriz) usando `total_delay` como criterio; el mejor se copia a `run_dir/best/` y los puntajes quedan en `selection.csv`. La política final de un experimento es la de `best/`, no la del último episodio (las curvas de DQN y de los métodos MARL de valor oscilan incluso con ε = 0.05). `python -m experiments.evaluate --run <run_dir>` carga de `<run_dir>/best` si existe y lo imprime; si no, usa el modelo del último episodio. Las semillas de validación nunca entran en las tablas finales: eso sigue siendo `EVAL_SEEDS`.
 
 ## 7. Evaluación (`experiments/evaluate.py` y `experiments/metrics.py`, ya en `main`)
 ```python

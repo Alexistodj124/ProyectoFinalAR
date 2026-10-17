@@ -80,24 +80,24 @@ La dimensión de la observación es `n_green + 1 + 2·carriles` (fase one-hot, b
 
 Con las 10 `EVAL_SEEDS`, el tiempo fijo da NB 335 s y SB 304 s.
 
-Las tres líneas base después de calibrar (`experiments.evaluate`, semillas 1000–1002, 3600 s; insertados en veh/h):
+**Líneas base actuales (E1).** `python -m experiments.run_matrix --exp E1`: 10 semillas de evaluación (1000–1009), 3600 s, media ± IC95, con el max-pressure corregido (`baselines/max_pressure.py`: conjuntos de carriles, presión por ocupación y `max_green`). Demora total = s por vehículo **demandado**, contando a los que no lograron entrar (`docs/ARCHITECTURE.md` §7). Ninguna línea base tuvo teletransportes. Tabla completa: `analysis/results/E1_eval.md`.
 
-| escenario | método | NB [s] | SB [s] | espera [s] | teletransp. | insertados | backlog |
-|---|---|---|---|---|---|---|---|
-| `reforma_pico` | fijo | 342 | 305 | 77.7 | 0 | 7328 | 0.1 % |
-| `reforma_pico` | actuado | 299 | 235 | 58.1 | 0 | 7273 | 0.8 % |
-| `reforma_pico` | max-pressure | 307 | 191 | 86.3 | 9.7 | 6545 | 10.7 % |
-| `reforma_mediodia` | fijo | 202 | 203 | 29.9 | 0 | 4745 | 0.1 % |
-| `reforma_mediodia` | actuado | 204 | 187 | 17.8 | 0 | 4745 | 0.1 % |
-| `reforma_mediodia` | max-pressure | 206 | 178 | 58.6 | 2.3 | 4694 | 1.1 % |
-| `reforma_pico_x13` | fijo | 457 | 383 | 118.8 | 0 | 8031 | 16.0 % |
-| `reforma_pico_x13` | actuado | 372 | 325 | 82.2 | 0 | 8037 | 16.0 % |
-| `reforma_pico_x13` | max-pressure | 350 | 211 | 106.3 | 30.3 | 7127 | 25.5 % |
-| `cruce_pico` | fijo | – | – | 29.2 | 0 | 4842 | 0.2 % |
-| `cruce_pico` | actuado | – | – | 29.0 | 0 | 4817 | 0.7 % |
-| `cruce_pico` | max-pressure | – | – | 27.7 | 0 | 4729 | 2.5 % |
+| escenario | método | demora total [s] | espera media [s] | backlog | tiempo de viaje [s] | espera máx. transversal [s] |
+|---|---|---|---|---|---|---|
+| `reforma_pico` | fijo | 79.1 ± 8.5 | 77.1 ± 7.7 | 0.18 % | 228.5 | 524 |
+| `reforma_pico` | actuado | 63.4 ± 6.1 | 57.9 ± 4.7 | 0.37 % | 200.3 | 832 |
+| `reforma_pico` | max-pressure | **41.7 ± 2.5** | **40.1 ± 2.0** | 0.12 % | 203.0 | 420 |
+| `reforma_mediodia` | fijo | 30.4 ± 0.3 | 29.9 ± 0.3 | 0.04 % | 143.2 | 161 |
+| `reforma_mediodia` | actuado | **18.7 ± 0.5** | **18.2 ± 0.5** | 0.04 % | 131.9 | 124 |
+| `reforma_mediodia` | max-pressure | 21.1 ± 0.3 | 20.5 ± 0.3 | 0.04 % | 138.0 | 158 |
+| `reforma_pico_x13` | fijo | 345.7 ± 9.7 | 123.1 ± 3.5 | 15.71 % | 301.3 | 666 |
+| `reforma_pico_x13` | actuado | 320.4 ± 11.9 | 79.4 ± 3.8 | 15.18 % | 228.9 | 422 |
+| `reforma_pico_x13` | max-pressure | **252.2 ± 11.5** | **60.2 ± 5.3** | 12.69 % | 259.8 | 1049 |
+| `cruce_pico` | fijo | 33.6 ± 6.7 | 31.3 ± 5.1 | 0.25 % | 102.4 | 113 |
+| `cruce_pico` | actuado | 38.0 ± 6.4 | 29.0 ± 1.0 | 0.80 % | 98.6 | 100 |
+| `cruce_pico` | max-pressure | **19.8 ± 5.8** | **16.7 ± 2.0** | 0.27 % | 90.9 | 271 |
 
-En el corredor, max-pressure deja sin verde a las transversales de una vía (15 calle y 10a calle, con esperas de 230–390 s). Sus colas salen de la red y por eso tiene backlog y teletransportes. Ya pasaba antes de calibrar en `pico_x13` (backlog 11.8 %, 21 teletransportes). Ojo: las métricas de `experiments.evaluate` solo cuentan los vehículos insertados, así que hay que mirar el backlog junto con la espera.
+Max-pressure es la mejor línea base en hora pico y con +30 % de demanda; a mediodía en el corredor gana el actuado. Su costo es la equidad: en el cruce hace esperar más a la transversal (espera máxima 271 s contra 113 s del fijo). La primera versión de max-pressure (presión sumada por enlace controlado, vehículos detenidos) favorecía siempre a las fases de Reforma, dejaba sin verde a las transversales de una vía y trababa el corredor (en `reforma_pico`, 3 semillas: 10.7 % de backlog y 9.7 teletransportes por episodio); esos números ya no aplican. En `reforma_pico_x13` las tres líneas base dejan entre 12.7 % y 15.7 % de la demanda fuera de la red: por eso hay que mirar la demora total y el backlog, no solo la espera media, que promedia sobre los vehículos insertados.
 
 ## Limitaciones conocidas
 - No se modelan los carriles auxiliares de Reforma ni las transversales sin semáforo (13, 11, 9a–7a calle), que en la realidad meten y sacan tráfico a media cuadra.

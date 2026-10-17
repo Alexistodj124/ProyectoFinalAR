@@ -114,11 +114,30 @@ Las interfaces entre módulos están en [docs/ARCHITECTURE.md](docs/ARCHITECTURE
 - **Conteos sintéticos, PROVISIONALES.** `env/conteos/{pico,mediodia}.csv` no son conteos de campo: los genera `env/synthetic_counts.py` y se calibraron contra un tiempo de viaje de referencia que tampoco es medido (330 s hacia el norte y 300 s hacia el sur, un placeholder en `env/validate.py`). El ciclo del tiempo fijo es igual de sintético (reparto de Webster). Con datos reales se reemplazan los CSV y se reconstruye con `scripts/build_network.sh`, que no pisa conteos que ya no sean sintéticos.
 - **Recompensa con el backlog de inserción.** La recompensa de sumo-rl solo cuenta la espera de los autos que están en los carriles de entrada, y los agentes aprendían a cerrar una entrada: los autos que no cabían esperaban afuera sin costo. `diff-waiting-time-pending` (`agents/rewards.py`) suma la espera de los vehículos que SUMO no pudo insertar. La recompensa solo se usa para entrenar; la evaluación no la usa (`docs/ajuste_aprendizaje.md` §3).
 - **`total_delay` como métrica principal.** `mean_waiting_time` promedia solo sobre los vehículos insertados y premia dejar autos fuera. `total_delay` cuenta a todos los vehículos de la demanda (el que nunca entró cuenta como si hubiera esperado afuera hasta el final), junto con `backlog_pct`.
-- **Selección de checkpoint por validación.** Cada corrida guarda checkpoints cada 20 episodios y se queda con el de menor `total_delay` en `VAL_SEEDS` (2000 a 2004). La evaluación final carga ese `best/` y usa `EVAL_SEEDS` (1000 a 1009). Las semillas de entrenamiento, validación y evaluación son familias disjuntas, y E7 elige qué semilla de entrenamiento evaluar sin mirar `EVAL_SEEDS`.
+- **Selección de checkpoint por validación.** Cada corrida guarda checkpoints cada 20 episodios y se queda con el de menor `total_delay` en las semillas de validación 2000 y 2001 (las dos primeras de `VAL_SEEDS`). La evaluación final carga ese `best/` y usa `EVAL_SEEDS` (1000 a 1009). Las semillas de entrenamiento, validación y evaluación son familias disjuntas, y E7 elige qué semilla de entrenamiento evaluar sin mirar `EVAL_SEEDS`.
 - **Max-pressure es una línea base fuerte.** Usa conjuntos de carriles (no enlaces), presión por ocupación y hace cumplir `max_green`. Los agentes RL tienen que ganarle a él, no solo al tiempo fijo.
 - **Mismo presupuesto, varias semillas.** Dentro de cada experimento, todos los algoritmos usan los mismos pasos de entorno (200 episodios) y 5 semillas de entrenamiento; se reporta media ± IC95.
 - **Equidad (E8).** Las variantes `qmix_fair` y `comm_fair` penalizan la espera máxima por aproximación, para ver si el agente sacrifica a las calles transversales.
 
 ## Resultados
 
-<!-- RESULTADOS -->
+Matriz completa E1 a E8 (5 semillas de entrenamiento, 200 episodios = 144 000 decisiones por agente, evaluación en 10 semillas nunca vistas). Métrica principal: demora total en segundos por vehículo demandado (cuenta también a los que no lograron entrar). Media ± IC95; réplica = semilla de entrenamiento (n = 5) en los métodos aprendidos y episodio de evaluación (n = 10) en las líneas base.
+
+| Método | Corredor hora pico (`reforma_pico`) | Cruce C12 hora pico (`cruce_pico`) |
+|---|---:|---:|
+| Tiempo fijo (sintético) | 79.1 ± 8.5 | 33.6 ± 6.7 |
+| Actuado | 63.4 ± 6.1 | 38.0 ± 6.4 |
+| Max-pressure | **41.7 ± 2.5** | **19.8 ± 5.8** |
+| Q-Learning / Dyna-Q (n = 5, 10, 50) | – | 39.0 / 43.0 / 46.8 / 47.3 |
+| DQN (Double + Dueling + PER) / PPO | – | 21.1 ± 1.6 / 23.8 ± 3.6 |
+| IDQN / IDQN + colas de vecinos | 64.1 ± 38.1 / 51.9 ± 6.8 | – |
+| QMIX / QMIX equitativo | 55.0 ± 20.5 / 46.5 ± 11.7 | – |
+| MAPPO | 46.8 ± 7.3 | – |
+| Comunicación (DIAL) / equitativa | 46.2 ± 14.9 / 50.6 ± 21.4 | – |
+
+- Los mejores métodos aprendidos mejoran claramente al tiempo fijo (MAPPO −41 %, p de Holm < 0.001) y al actuado, pero **ninguno supera a max-pressure** (MAPPO contra max-pressure: +5.1 s, p = 0.13).
+- Entre IDQN, QMIX y MAPPO, y con la comunicación, las medias van en el orden esperado pero las diferencias no son detectables con 5 semillas.
+- Con 30 % más demanda (E7), MAPPO queda al nivel del tiempo fijo y muy por encima de max-pressure; con un carril cerrado nadie supera a max-pressure.
+- En el cruce, max-pressure y los agentes aumentan entre 48 % y 140 % la espera máxima en la calle transversal respecto del tiempo fijo (E8).
+
+Detalle, figuras y comparaciones estadísticas: [analysis/results/RESUMEN.md](analysis/results/RESUMEN.md) y el informe ([docs/informe/informe.md](docs/informe/informe.md), PDF en `docs/informe/informe.pdf`). Los conteos y el ciclo del tiempo fijo son sintéticos: las cifras comparan métodos, no predicen el efecto en la calle.

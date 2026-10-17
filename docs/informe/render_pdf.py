@@ -52,6 +52,9 @@ table { border-collapse: collapse; margin: 0.6em auto 1em; font-size: 9pt; }
 tr { page-break-inside: avoid; }
 th, td { border-top: 1px solid #bbb; border-bottom: 1px solid #bbb; padding: 3px 6px; vertical-align: top; }
 th { background: #f0f0f0; }
+table.num { font-size: 8.2pt; }
+table.num th, table.num td { padding: 2px 4px; }
+table.num td { white-space: nowrap; }
 code { font-family: Menlo, monospace; font-size: 8.8pt; background: #f4f4f4; padding: 0 2px; }
 pre { background: #f4f4f4; padding: 0.6em; overflow-x: auto; font-size: 8.5pt; }
 img { display: block; max-width: 100%; max-height: 8cm; margin: 0.8em auto 0.2em; }
@@ -235,10 +238,22 @@ def postprocess(body: str, base: Path) -> str:
             fig = tag
         else:
             fig = f'<div class="fig-missing">[figura pendiente: {html.escape(src)}]</div>'
-        cap = f'<div class="caption">{alt}</div>' if alt else ""
+        # el alt no pasa por Markdown: cursiva y código a mano en el pie de figura
+        alt_html = re.sub(r"`([^`]+)`", r"<code>\1</code>", alt)
+        alt_html = re.sub(r"(?<![\w*])\*([^*\s][^*]*?)\*(?![\w*])", r"<em>\1</em>", alt_html)
+        cap = f'<div class="caption">{alt_html}</div>' if alt else ""
         return fig + cap
 
     body = re.sub(r"<img [^>]*>", img, body)
+
+    # tablas de resultados (celdas "media ± IC95"): clase "num" para que las celdas no se partan
+    def num_table(m: re.Match) -> str:
+        tab = m.group(0)
+        if "±" not in tab:
+            return tab
+        return tab.replace("<table>", '<table class="num">', 1)
+
+    body = re.sub(r"<table>.*?</table>", num_table, body, flags=re.S)
     # referencias en letra más pequeña: todo lo que sigue al título "Referencias"
     body = re.sub(r"(<h2>Referencias</h2>)(.*)$", r'\1<div class="refs">\2</div>', body, flags=re.S)
     # un <p> que solo contiene la figura no debe envolver los <div>
