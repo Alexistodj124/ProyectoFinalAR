@@ -34,7 +34,9 @@ partir del encargo (sin entrevista).
 
 ## Notes
 
-- Música: opcional solo si se resolvía sin autenticación paga. `hyperframes auth status`: sin sesión de HeyGen y el motor local (MusicGen) sin dependencias (no se permite pip install en el venv compartido) → video en silencio, decisión deliberada.
+- Música: primero el video salió en silencio (sin sesión de HeyGen). El 17-10-2026, con la sesión OAuth activa, se
+  agregó una cama instrumental del catálogo de HeyGen (100 BPM, "understated electronic pulse") mezclada a
+  −20 LUFS con fundidos de 2 s / 3 s; la versión sin audio se conserva. Detalle y licencia en ../README.md §5.
 - Conteos de tráfico sintéticos/provisionales: decirlo en letra pequeña en la tarjeta de resultados.
 - La espera en vivo de la demo (`mean_wait`) no es la métrica de evaluación (demora total por vehículo): no mezclarlas.
 - Render autónomo: el usuario pidió explícitamente renderizar sin preguntar (está fuera).

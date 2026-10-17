@@ -16,6 +16,13 @@ from pathlib import Path
 
 FPS = 30
 TITLE_DUR, CONTEXT_DUR, RESULTS_DUR, CLOSING_DUR = 5.0, 9.5, 15.0, 5.5
+# Música de fondo (HeyGen "Astral Generated Music: 0bfa4630", 100 BPM; ver ../README.md §5).
+# media/bgm/bed_reforma_225s.wav se arma con ffmpeg desde el original (secciones de 8 compases = 19.2 s):
+#   [24.0, 115.2) + [38.4, 115.2) + [38.4, 96.2) con cruces de 80 ms -> 225.64 s; la caída a la parte
+#   completa del tema cae en t = 14.4 s, justo cuando entra el metraje de la demo.
+MUSIC_SRC = "media/bgm/bed_reforma_225s.wav"
+MUSIC_GAIN_DB = -6.0   # nivel fijo (etapa gain del data-fx-chain): ~-20 LUFS integrados en el video
+MUSIC_FADE_IN, MUSIC_FADE_OUT, MUSIC_DIP = 2.0, 3.0, 0.63  # dip ~-4 dB bajo la tarjeta de resultados
 DEMO_START = TITLE_DUR + CONTEXT_DUR
 FOOT_SCALE = 0.875  # 1920x1080 -> 1680x945 dentro del marco
 FRAME_X, FRAME_Y, FRAME_W, FRAME_H = 120, 22, 1680, 945
@@ -253,7 +260,18 @@ def build_index() -> str:
         f'        <div class="rail-n" id="rail{i}"><span class="rail-num">{i + 1:02d}</span><span class="rail-lab">{esc(c[0])}</span></div>'
         for i, c in enumerate(CHAPTERS))
     js = {"demoStart": DEMO_START, "demoEnd": DEMO_END, "chStart": ch_start}
-    return (INDEX_TEMPLATE.replace("@TOTAL@", f"{TOTAL:g}").replace("@DEMO_START@", f"{DEMO_START:g}")
+    lane = [
+        {"t": 0, "v": 0}, {"t": MUSIC_FADE_IN, "v": 1},
+        {"t": r2(RESULTS_START - 0.6), "v": 1}, {"t": r2(RESULTS_START + 0.6), "v": MUSIC_DIP},
+        {"t": r2(TOTAL - MUSIC_FADE_OUT), "v": MUSIC_DIP}, {"t": TOTAL, "v": 0},
+    ]
+    music = (
+        f'      <audio id="music-bed" src="{MUSIC_SRC}" data-start="0" data-duration="{TOTAL:g}" data-track-index="10" '
+        f'data-volume="1"\n'
+        f"        data-fx-chain='{json.dumps({'version': 1, 'nodes': [{'type': 'gain', 'id': 'g1', 'label': 'Nivel de la cama', 'params': {'gain': MUSIC_GAIN_DB}}]})}'\n"
+        f"        data-automation='{json.dumps({'version': 1, 'lanes': [{'target': 'volume', 'points': lane}]})}'></audio>"
+    )
+    return (INDEX_TEMPLATE.replace("@MUSIC@", music).replace("@TOTAL@", f"{TOTAL:g}").replace("@DEMO_START@", f"{DEMO_START:g}")
             .replace("@DEMO_DUR@", f"{r2(DEMO_END - DEMO_START):g}").replace("@RESULTS_START@", f"{RESULTS_START:g}")
             .replace("@CLOSING_START@", f"{CLOSING_START:g}").replace("@RESULTS_DUR@", f"{RESULTS_DUR:g}")
             .replace("@CLOSING_DUR@", f"{CLOSING_DUR:g}").replace("@TITLE_DUR@", f"{TITLE_DUR:g}")
@@ -382,6 +400,9 @@ INDEX_TEMPLATE = """<!doctype html>
         data-start="@RESULTS_START@" data-duration="@RESULTS_DUR@" data-track-index="2" data-width="1920" data-height="1080"></div>
       <div id="el-closing" class="slot" data-composition-id="closing" data-composition-src="compositions/closing.html"
         data-start="@CLOSING_START@" data-duration="@CLOSING_DUR@" data-track-index="2" data-width="1920" data-height="1080"></div>
+
+      <!-- Música de fondo: fundido de entrada 2 s, baja ~4 dB en resultados, fundido de salida 3 s -->
+@MUSIC@
     </div>
 
     <script>
