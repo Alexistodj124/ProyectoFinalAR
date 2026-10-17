@@ -1,0 +1,51 @@
+<additional>
+<!-- Programa actuado de SUMO (extiende el verde con detectores automaticos), mismas fases. -->
+    <tlLogic id="C15" type="actuated" programID="actuated" offset="0">
+        <param key="max-gap" value="3.0"/>
+        <param key="detector-gap" value="2.0"/>
+        <phase duration="70" minDur="15" maxDur="70" state="GGGGGGGgrrrr"/>
+        <phase duration="3" state="yyyyyyyyrrrr"/>
+        <phase duration="21" minDur="10" maxDur="50" state="rrrrrrrrGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyy"/>
+    </tlLogic>
+    <tlLogic id="C14" type="actuated" programID="actuated" offset="0">
+        <param key="max-gap" value="3.0"/>
+        <param key="detector-gap" value="2.0"/>
+        <phase duration="61" minDur="15" maxDur="70" state="GGGGGGGgrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrr"/>
+        <phase duration="21" minDur="8" maxDur="25" state="rrrGGGrGrrrr"/>
+        <phase duration="3" state="rrryyyryrrrr"/>
+        <phase duration="19" minDur="10" maxDur="50" state="rrrrrrrrGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyy"/>
+    </tlLogic>
+    <tlLogic id="C12" type="actuated" programID="actuated" offset="0">
+        <param key="max-gap" value="3.0"/>
+        <param key="detector-gap" value="2.0"/>
+        <phase duration="52" minDur="15" maxDur="70" state="GGGGGGGgrrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrrr"/>
+        <phase duration="25" minDur="8" maxDur="25" state="rrrGGGrGrrrrr"/>
+        <phase duration="3" state="rrryyyryrrrrr"/>
+        <phase duration="24" minDur="10" maxDur="50" state="rrrrrrrrGGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyyy"/>
+    </tlLogic>
+    <tlLogic id="C10" type="actuated" programID="actuated" offset="0">
+        <param key="max-gap" value="3.0"/>
+        <param key="detector-gap" value="2.0"/>
+        <phase duration="54" minDur="15" maxDur="70" state="GGGGGGGgrrrrr"/>
+        <phase duration="3" state="GGGyyyygrrrrr"/>
+        <phase duration="25" minDur="8" maxDur="25" state="GGGrrrrGrrrrr"/>
+        <phase duration="3" state="yyyrrrryrrrrr"/>
+        <phase duration="18" minDur="10" maxDur="50" state="rrrrrrrrGGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyyy"/>
+    </tlLogic>
+    <tlLogic id="C06" type="actuated" programID="actuated" offset="0">
+        <param key="max-gap" value="3.0"/>
+        <param key="detector-gap" value="2.0"/>
+        <phase duration="49" minDur="15" maxDur="70" state="GGGGGGGgrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrr"/>
+        <phase duration="25" minDur="8" maxDur="25" state="rrrGGGrGrrrr"/>
+        <phase duration="3" state="rrryyyryrrrr"/>
+        <phase duration="20" minDur="10" maxDur="50" state="rrrrrrrrGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyy"/>
+    </tlLogic>
+</additional>

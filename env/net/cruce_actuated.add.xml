@@ -1,0 +1,13 @@
+<additional>
+<!-- Programa actuado de SUMO (extiende el verde con detectores automaticos), mismas fases. -->
+    <tlLogic id="C12" type="actuated" programID="actuated" offset="0">
+        <param key="max-gap" value="3.0"/>
+        <param key="detector-gap" value="2.0"/>
+        <phase duration="52" minDur="15" maxDur="70" state="GGGGGGGgrrrrr"/>
+        <phase duration="3" state="yyyGGGygrrrrr"/>
+        <phase duration="25" minDur="8" maxDur="25" state="rrrGGGrGrrrrr"/>
+        <phase duration="3" state="rrryyyryrrrrr"/>
+        <phase duration="24" minDur="10" maxDur="50" state="rrrrrrrrGGGGG"/>
+        <phase duration="3" state="rrrrrrrryyyyy"/>
+    </tlLogic>
+</additional>
