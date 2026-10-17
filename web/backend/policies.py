@@ -173,7 +173,9 @@ def load_rl_policy(spec: dict | None, scenario: str | Scenario | None = None) ->
             if not is_compatible(algo, run_sc, scenario):
                 tgt = scenario.name if isinstance(scenario, Scenario) else scenario
                 raise ValueError(f"{run} se entreno en {run_sc} y no sirve para {tgt} (otra red u otro tipo de agente)")
-            pol = load_policy(algo, str(run_dir))
+            from experiments.common import policy_dir
+
+            pol = load_policy(algo, str(policy_dir(run_dir)))  # best/ (validación) si existe
         info = {"algo": algo, "run": run, "label": LABELS.get(algo, algo), "warning": None}
         if run:
             info["label"] = f"{algo} ({run})"
