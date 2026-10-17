@@ -1,0 +1,21 @@
+exp: E2
+algo: dyna_q
+name: dyna_q_n10
+scenario: cruce_pico
+seed: 0
+total_episodes: 100
+num_seconds: 3600
+eval:
+  scenarios:
+  - cruce_pico
+  - cruce_mediodia
+  every_episodes: 10
+  episodes: 3
+hparams:
+  alpha: 0.1
+  gamma: 0.99
+  eps_start: 1.0
+  eps_end: 0.05
+  eps_schedule: linear
+  eps_decay_frac: 0.7
+  n_planning: 10
