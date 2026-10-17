@@ -54,6 +54,11 @@
         data-start="205.033" data-duration="15" data-track-index="2" data-width="1920" data-height="1080"></div>
       <div id="el-closing" class="slot" data-composition-id="closing" data-composition-src="compositions/closing.html"
         data-start="220.033" data-duration="5.5" data-track-index="2" data-width="1920" data-height="1080"></div>
+
+      <!-- Música de fondo: fundido de entrada 2 s, baja ~4 dB en resultados, fundido de salida 3 s -->
+      <audio id="music-bed" src="media/bgm/bed_reforma_225s.wav" data-start="0" data-duration="225.533" data-track-index="10" data-volume="1"
+        data-fx-chain='{"version": 1, "nodes": [{"type": "gain", "id": "g1", "label": "Nivel de la cama", "params": {"gain": -6.0}}]}'
+        data-automation='{"version": 1, "lanes": [{"target": "volume", "points": [{"t": 0, "v": 0}, {"t": 2.0, "v": 1}, {"t": 204.43333333333334, "v": 1}, {"t": 205.63333333333333, "v": 0.63}, {"t": 222.53333333333333, "v": 0.63}, {"t": 225.53333333333333, "v": 0}]}]}'></audio>
     </div>
 
     <script>

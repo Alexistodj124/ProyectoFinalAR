@@ -4,9 +4,12 @@ Video de ~3:46 que documenta la demo web en vivo (`web/`) funcionando con los mo
 semáforo de tiempo fijo (izquierda) contra el agente RL (derecha), misma demanda y misma semilla. Es el
 plan B si la demo falla durante la presentación.
 
-- **Archivo final (fuera del repo, no va a git):** `../video/demo_respaldo.mp4` (desde la raíz de
-  `Proyecto Final/`), 3:45.5, 1920×1080, 30 fps, H.264, 40.1 MB (38.2 MiB), sin audio (decisión deliberada, ver
-  "Notas").
+- **Archivos finales (fuera del repo, no van a git; rutas desde la raíz de `Proyecto Final/`):**
+  - `../video/demo_respaldo_musica.mp4`: **versión con música de fondo** (recomendada), 3:45.5, 1920×1080,
+    30 fps, H.264 + AAC 48 kHz estéreo, 45.8 MB; audio a −20.0 LUFS integrados, pico real −6.0 dBTP.
+  - `../video/demo_respaldo_musica_720p.mp4`: la misma a 1280×720 (CRF 26, AAC 128 kb/s), 13.0 MB, para
+    compartir o mandar por chat.
+  - `../video/demo_respaldo.mp4`: versión original **sin audio**, 40.1 MB (se conserva tal cual).
 - **Clips crudos:** `../video/clips/*.mp4` (uno por prueba) y `../video/clips/clips_log.json` (política,
   tiempo simulado final y mejora de cada clip).
 - **Fuentes de la edición (sí van a git):** `docs/video/hyperframes/` (proyecto de HyperFrames).
@@ -73,11 +76,18 @@ editan a mano. El metraje vive en `media/` (ignorado por git).
 ```bash
 cd docs/video/hyperframes
 mkdir -p media && cp ../../../../video/clips/*.mp4 media/   # (rutas de este equipo; o copiar a mano)
-python3 edl.py                       # regenera index.html y los capítulos, imprime el guion con tiempos
+python3 edl.py                       # regenera index.html (con la música) y los capítulos, imprime el guion
+# la música: media/bgm/bed_reforma_225s.wav (ver §5 para descargarla y armarla de nuevo)
 npx hyperframes check                # lint + runtime + layout + motion + contraste (debe pasar sin hallazgos)
 npx hyperframes preview --background # Studio en http://localhost:3002 (editar ahí también sirve); --stop al terminar
-npx hyperframes render -o ../../../../video/demo_respaldo.mp4 --fps 30 --crf 20 --workers 4
+npx hyperframes render -o ../../../../video/demo_respaldo_musica.mp4 --fps 30 --crf 20 --workers 1
+# copia liviana
+ffmpeg -i ../../../../video/demo_respaldo_musica.mp4 -vf scale=1280:-2 -c:v libx264 -crf 26 -pix_fmt yuv420p \
+  -c:a aac -b:a 128k -movflags +faststart ../../../../video/demo_respaldo_musica_720p.mp4
 ```
+
+Con poco disco libre conviene `--workers 1`: con un solo proceso HyperFrames codifica mientras captura; con varios
+guarda cada cuadro en disco antes (~14 GB para este video).
 
 Si se vuelven a grabar los clips, los tiempos de los eventos (clic en Reiniciar, en el carril, etc.) pueden
 moverse unas décimas: revisar `edl.py` (`at("clip", segundo)`) con una hoja de contacto
@@ -163,8 +173,38 @@ y por la UI (Chrome headless). "Mejora" = (espera fijo − espera RL) / espera f
 
 ## 5. Notas
 
-- Música: no hay sesión de HeyGen y el motor local de música no tiene dependencias (no se instala nada en el venv
-  compartido), así que el video va en silencio a propósito.
-- `npx hyperframes usage --json` devolvió `status: unknown` (uso desconocido).
+- **Música de fondo (versión `demo_respaldo_musica*.mp4`).** Fuente: catálogo de audio de **HeyGen**
+  (`GET https://api.heygen.com/v3/audio/sounds?type=music`, búsqueda "downtempo electronic 100 bpm subtle beat
+  data technology"), pista `0bfa4630ecda4bf79874e858869ed93e`, "Astral Generated Music: 0bfa4630" (música
+  generada por IA de HeyGen; descripción del catálogo: "understated electronic pulse, 100 BPM, professional and
+  technical"), WAV de 122 s, instrumental. Descargada el 17-10-2026 con la sesión OAuth de HeyGen del usuario
+  (plan FREE; la búsqueda y la descarga no pidieron créditos). Original guardado en
+  `docs/video/hyperframes/media/bgm/heygen_0bfa4630_pulse_100bpm.wav` (ignorado por git).
+  - **Licencia:** la respuesta de la API no trae un campo de licencia. El uso queda sujeto a los Términos de
+    Servicio de HeyGen de la cuenta que la descargó; no se encontró un texto público específico de licencia para
+    la biblioteca de música. Para la presentación del curso no hay problema práctico, pero **antes de publicar el
+    video o usarlo comercialmente hay que confirmarlo en heygen.com** (o volver a la versión sin audio).
+  - **Cómo se obtuvo:** `npx hyperframes media-use resolve --type bgm` falló porque no está instalado el CLI
+    `heygen` ("bgm needs the heygen CLI, which is not installed"). Se usó la librería del motor de audio de la
+    misma skill (`media-use/audio/scripts/lib/heygen.mjs`: `searchSounds` + `downloadTo`), que usa directamente
+    la credencial de `~/.heygen/credentials`. No se instaló nada.
+  - **Cama de 225.6 s:** el tema va a 100 BPM en secciones de 8 compases (19.2 s). Con ffmpeg (muestras exactas a
+    44.1 kHz) se unen `[24.0, 115.2)` + `[38.4, 115.2)` + `[38.4, 96.2)` con cruces de 80 ms
+    (`atrim` + `acrossfade`), así la entrada fuerte del tema cae en t = 14.4 s, cuando aparece el metraje de la
+    demo, y las uniones caen en inicios de sección (sin clics ni huecos medidos):
+    ```bash
+    ffmpeg -i media/bgm/heygen_0bfa4630_pulse_100bpm.wav -filter_complex \
+      "[0:a]atrim=start_sample=1058400:end_sample=5080320,asetpts=PTS-STARTPTS[a];\
+       [0:a]atrim=start_sample=1693440:end_sample=5080320,asetpts=PTS-STARTPTS[b];\
+       [0:a]atrim=start_sample=1693440:end_sample=4242420,asetpts=PTS-STARTPTS[c];\
+       [a][b]acrossfade=d=0.08:c1=tri:c2=tri[ab];[ab][c]acrossfade=d=0.08:c1=tri:c2=tri[out]" \
+      -map "[out]" -c:a pcm_s16le media/bgm/bed_reforma_225s.wav
+    ```
+  - **Mezcla** (en `edl.py` → `<audio id="music-bed">` de `index.html`, con `/hyperframes-audio`): etapa `gain`
+    de −6 dB en `data-fx-chain` y una línea de volumen en `data-automation`: fundido de entrada de 2 s, baja a 0.63
+    (≈ −4 dB) bajo la tarjeta de resultados para leer tranquilo, y fundido de salida de 3 s al final. Resultado
+    medido con `ffmpeg -af ebur128=peak=true`: −20.0 LUFS integrados, LRA 4.1 LU, pico real −6.0 dBTP.
+- `npx hyperframes usage --json` devolvió `{"status":"unknown","reason":"unsupported_auth"}` antes y después de
+  agregar la música (uso desconocido).
 - La app de escritorio de HyperFrames ("Framey") permite seguir editando por chat: `npx hyperframes open .` desde
   `docs/video/hyperframes/`.
