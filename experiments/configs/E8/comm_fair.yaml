@@ -1,0 +1,38 @@
+# E8: comm (E6) con la recompensa con penalización de equidad (PLAN §8.2, último párrafo).
+# Mismos hiperparámetros y presupuesto que experiments/configs/E6/comm.yaml; solo cambia reward_fn:
+#   r = r_pending - fair_lambda * (aumento de la espera máxima por aproximación) / 100  (agents/rewards.py)
+exp: E8
+algo: comm
+name: comm_fair
+scenario: reforma_pico
+seed: 0
+total_episodes: 200   # 200 x 720 = 144 000 decisiones por agente (igual en E5 y E6)
+num_seconds: 3600
+hparams:
+  reward_fn: diff-waiting-time-pending-fair   # pending + penalizacion de la espera maxima por aproximacion
+  fair_lambda: 0.5     # el vehiculo que mas espera cuenta 1.5 veces (experiments/configs/README.md)
+  lr: 1.0e-4
+  gamma: 0.99
+  hidden: [128, 128]
+  msg_dim: 6
+  msg_hidden: 64
+  msg_noise: 0.0
+  mixer: none            # none = estilo IDQN (comparable con idqn_neighbor_obs); qmix = QMIX + comunicación
+  reward: team           # igual que idqn_neighbor_obs
+  state_queues: true
+  buffer_size: 50000
+  batch_size: 64
+  learning_starts: 1000
+  train_freq: 1
+  target_update_interval: 500
+  tau: 0.005            # Polyak en cada paso de entrenamiento
+  eps_start: 1.0
+  eps_end: 0.05
+  eps_fraction: 0.3
+  grad_clip: 10.0
+  loss: huber
+  reward_scale: 0.02     # suma de 5 cruces => 0.1 por cruce
+  reward_norm: false
+  device: auto
+  save_every: 10
+eval: {scenarios: [reforma_pico, reforma_mediodia, reforma_pico_x13], every_episodes: 20, val_seeds: 2}

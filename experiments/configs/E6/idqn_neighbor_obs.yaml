@@ -28,4 +28,4 @@ hparams:
   shared_params: false
   device: auto
   save_every: 10
-eval: {scenarios: [reforma_pico, reforma_mediodia, reforma_pico_x13], every_episodes: 10, episodes: 3}
+eval: {scenarios: [reforma_pico, reforma_mediodia, reforma_pico_x13], every_episodes: 20, val_seeds: 2}

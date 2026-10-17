@@ -40,6 +40,9 @@ class DynaQAgent(QLearningAgent):
     def info(self):
         return {"model_size": len(self.visited)}
 
+    def files(self):
+        return ["qtable.npz", "model.pkl", "qtable_vi.npz"]
+
     def save(self, run_dir, hp):
         super().save(run_dir, hp)
         with (Path(run_dir) / "model.pkl").open("wb") as f:

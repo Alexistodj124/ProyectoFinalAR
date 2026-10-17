@@ -30,8 +30,13 @@ PROFILES = {
     "noche": {"counts": "pico", "scale": 0.3},  # synthetic night
 }
 
-# Seed convention: training seeds and evaluation seeds never overlap.
+# Seed convention: training, validation and evaluation seeds never overlap.
+#   TRAIN_SEEDS: run seeds (the demand of training episode ep of run seed s is
+#                experiments.common.episode_seed(s, ep) >= 10_000).
+#   VAL_SEEDS:   demand seeds for checkpoint selection (experiments/train.py, E7 seed selection).
+#   EVAL_SEEDS:  demand seeds of the final evaluation, never used to choose anything.
 TRAIN_SEEDS = [0, 1, 2, 3, 4]
+VAL_SEEDS = [2000, 2001, 2002, 2003, 2004]
 EVAL_SEEDS = list(range(1000, 1010))
 
 

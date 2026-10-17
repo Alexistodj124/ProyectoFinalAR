@@ -37,6 +37,9 @@ class QLearningAgent:
     def info(self) -> dict:
         return {}
 
+    def files(self) -> list[str]:
+        return ["qtable.npz"]
+
     def save(self, run_dir, hp) -> None:
         save_qtable(self.q, Path(run_dir) / "qtable.npz", hp["thresholds"], hp["agg"])
 

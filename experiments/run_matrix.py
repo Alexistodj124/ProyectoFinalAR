@@ -6,9 +6,12 @@
 
 Phases (each one waits for the previous one):
     1  E1 baselines evaluation        (experiments.evaluate --config)
-    2  E2..E6 training (+ final eval) (experiments.train, one process per config x seed)
+    2  E2..E6 training (+ checkpoint selection on VAL_SEEDS + final eval) (experiments.train,
+       one process per config x seed), plus the E8 training configs (E8/*.yaml with an `algo`:
+       the fairness-penalized variants qmix_fair / comm_fair)
     3  E7 robustness                  (experiments.robustness, needs the trained runs)
-    4  E8 fairness collection         (experiments.robustness --fairness, reads eval CSVs)
+    4  E8 fairness collection         (experiments.robustness --fairness, reads eval CSVs,
+       including those of the E8 training runs)
 Every job is its own process (own libsumo). A job whose run_dir has a DONE marker is skipped,
 so an interrupted matrix can simply be launched again. Results go to <runs-dir>/manifest.csv.
 """
@@ -81,10 +84,10 @@ def _cfg_meta(path: Path) -> dict:
 
 
 def build_jobs(exps: list[str], seeds: list[int], runs_dir: Path, *, quick: bool = False, do_eval: bool = True,
-               globs: list[str] | None = None, no_libsumo: bool = False) -> list[Job]:
+               globs: list[str] | None = None, no_libsumo: bool = False, select: bool = True) -> list[Job]:
     """Pure function (no I/O except reading configs): the list of jobs of the matrix."""
     jobs: list[Job] = []
-    flags = ["--no-libsumo"] if no_libsumo else []
+    flags = (["--no-libsumo"] if no_libsumo else []) + ([] if select else ["--no-select"])
 
     if globs:  # explicit glob: every matching config is a training config
         for f in _config_files("", globs):
@@ -117,6 +120,10 @@ def build_jobs(exps: list[str], seeds: list[int], runs_dir: Path, *, quick: bool
                 jobs.append(Job("E7", f.stem, "robustness", str(f), out, None, cmd, phase=3))
         elif exp == "E8":
             for f in _config_files(exp, None):
+                cfg = _cfg_meta(f)
+                if cfg.get("algo") is not None:  # E8 training config (fairness-penalized variant)
+                    jobs += _train_jobs(f, cfg, seeds, runs_dir, quick, do_eval, flags, phase=2)
+                    continue
                 out = runs_dir / "E8"
                 cmd = _py("experiments.robustness", "--fairness", "--config", str(f), "--runs-dir", str(runs_dir), "--out", str(out / "fairness.csv"))
                 jobs.append(Job("E8", f.stem, "fairness", str(f), out, None, cmd, phase=4))
@@ -237,6 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--quick", action="store_true", help=f"smoke test: {QUICK}")
     p.add_argument("--force", action="store_true", help="ignore DONE markers")
     p.add_argument("--no-eval", action="store_true", help="skip the final evaluation after training")
+    p.add_argument("--no-select", action="store_true", help="skip the checkpoint selection on VAL_SEEDS (evaluate the last model)")
     p.add_argument("--no-libsumo", action="store_true")
     a = p.parse_args(argv)
 
@@ -245,7 +253,8 @@ def main(argv: list[str] | None = None) -> int:
     bad = [e for e in exps if e not in ALL_EXPS]
     if bad:
         p.error(f"unknown experiment(s) {bad}; choose from {ALL_EXPS}")
-    jobs = build_jobs(exps, a.seeds, runs_dir, quick=a.quick, do_eval=not a.no_eval, globs=a.glob, no_libsumo=a.no_libsumo)
+    jobs = build_jobs(exps, a.seeds, runs_dir, quick=a.quick, do_eval=not a.no_eval, globs=a.glob, no_libsumo=a.no_libsumo,
+                      select=not a.no_select)
     attach_upstream(jobs)
     if not jobs:
         print("No configs found for", a.glob or exps)

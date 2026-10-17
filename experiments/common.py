@@ -83,3 +83,54 @@ class TrainLogger:
     def close(self) -> None:
         if self.tb is not None:
             self.tb.close()
+
+
+# ------------------------------------------------------------------ checkpoints
+CHECKPOINTS = "checkpoints"  # run_dir/checkpoints/ep{N:04d}/ : self-contained, loadable with load_policy
+BEST = "best"  # run_dir/best/ : copy of the checkpoint chosen on VAL_SEEDS (experiments/train.py)
+DEFAULT_CHECKPOINT_EVERY = 20
+
+
+def checkpoint_every(cfg: dict) -> int:
+    """Episodes between checkpoints: cfg["eval"]["every_episodes"] (default 20)."""
+    n = (cfg.get("eval") or {}).get("every_episodes") or DEFAULT_CHECKPOINT_EVERY
+    return max(1, int(n))
+
+
+def is_checkpoint_episode(cfg: dict, episodes_done: int, total_episodes: int) -> bool:
+    """True after `episodes_done` finished episodes if a checkpoint is due (every N and at the end)."""
+    return episodes_done > 0 and (episodes_done % checkpoint_every(cfg) == 0 or episodes_done == total_episodes)
+
+
+def checkpoint_dir(run_dir: str | Path, episodes_done: int) -> Path:
+    return Path(run_dir) / CHECKPOINTS / f"ep{int(episodes_done):04d}"
+
+
+def snapshot_checkpoint(run_dir: str | Path, episodes_done: int, files: list[str]) -> Path:
+    """Copy `files` (names relative to run_dir, just written by the learner) and config.yaml into
+    run_dir/checkpoints/ep{N:04d}/, so that load_policy(<that dir>) works like load_policy(run_dir)."""
+    import shutil
+
+    run_dir = Path(run_dir)
+    dst = checkpoint_dir(run_dir, episodes_done)
+    dst.mkdir(parents=True, exist_ok=True)
+    for name in [*files, "config.yaml"]:
+        src = run_dir / name
+        if src.exists():
+            shutil.copy2(src, dst / name)
+    return dst
+
+
+def list_checkpoints(run_dir: str | Path) -> list[Path]:
+    """Checkpoint dirs of a run, sorted by episode."""
+    root = Path(run_dir) / CHECKPOINTS
+    if not root.is_dir():
+        return []
+    return sorted((p for p in root.iterdir() if p.is_dir() and p.name.startswith("ep")), key=lambda p: int(p.name[2:]))
+
+
+def policy_dir(run_dir: str | Path) -> Path:
+    """Directory to load a trained run from: run_dir/best (validation-selected checkpoint) if it
+    exists, else run_dir itself (final model)."""
+    best = Path(run_dir) / BEST
+    return best if best.is_dir() else Path(run_dir)

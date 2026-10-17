@@ -11,7 +11,15 @@ import numpy as np
 from agents.base import Policy
 from agents.rewards import DEFAULT_TRAIN_REWARD, train_env_kwargs
 from agents.tabular.discretize import DEFAULT_THRESHOLDS, Discretizer
-from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
+from experiments.common import (
+    TrainLogger,
+    episode_seed,
+    is_checkpoint_episode,
+    resolve_run_dir,
+    save_config,
+    set_seed,
+    snapshot_checkpoint,
+)
 
 DEFAULT_HP = dict(
     alpha=0.1,
@@ -84,7 +92,7 @@ def train_loop(cfg: dict, make_agent, algo: str) -> str:
     """Generic episodic loop shared by Q-Learning and Dyna-Q.
 
     make_agent(hp, n_actions, rng) -> agent with .q, .act(s, eps), .learn(s, a, r, s2, terminated),
-    .info() (extra log columns) and .save(run_dir).
+    .info() (extra log columns), .save(run_dir, hp) and .files() (names written by save).
     """
     from env.reforma_env import get_sumo_env, make_parallel_env
 
@@ -125,8 +133,11 @@ def train_loop(cfg: dict, make_agent, algo: str) -> str:
                 mean_waiting_time=round(float(np.mean(waits)), 4), epsilon=round(eps, 4),
                 n_states=len(agent.q), **agent.info(),
             )
-            if (ep + 1) % save_every == 0 or ep == total - 1:
+            ckpt = is_checkpoint_episode(cfg, ep + 1, total)
+            if (ep + 1) % save_every == 0 or ep == total - 1 or ckpt:
                 agent.save(run_dir, hp)
+            if ckpt:  # self-contained copy for validation-based model selection (experiments/train.py)
+                snapshot_checkpoint(run_dir, ep + 1, agent.files())
     finally:
         env.close()
         logger.close()
