@@ -19,7 +19,7 @@ Este archivo fija las interfaces que comparten todas las ramas. Si un módulo cu
 - Semillas: `TRAIN_SEEDS = [0..4]` y `EVAL_SEEDS = [1000..1009]`, que nunca se mezclan.
 - `get_topology(net_file) -> {"order", "neighbors", "xy"}`: cadena de semáforos ordenados a lo largo del corredor. Sirve para observar a los vecinos y para la comunicación.
 
-## 2. Fábrica de entornos (`env/reforma_env.py`, rama `feat/env-reforma`)
+## 2. Fábrica de entornos (`env/reforma_env.py`: versión mínima en `main`, la completa en `feat/env-reforma`)
 ```python
 make_parallel_env(scenario, seed=0, *, num_seconds=None, fixed_ts=False, program=None,
                   tripinfo_path=None, emissions=False, incident=None, use_gui=False,
@@ -32,6 +32,11 @@ get_sumo_env(env) -> sumo_rl.SumoEnvironment                  # para .traffic_si
 - `tripinfo_path`: agrega `--tripinfo-output <path> --tripinfo-output.write-unfinished` (y `--device.emissions.probability 1` si `emissions=True`).
 - `incident={"edge" o "lane": id, "start": s, "end": s}`: cierra el carril para `passenger` entre esos tiempos con TraCI. Se usa en E7 y en la demo.
 - `make_gym_env` envuelve el entorno paralelo de 1 agente como `gymnasium.Env` (obs `Box` y acción `Discrete`) para SB3 y los agentes de 1 agente.
+- `env.reset(seed=k)` regenera la demanda con la semilla `k` (si el escenario la genera). Al entrenar se usa `env.reset(seed=experiments.common.episode_seed(seed, ep))`, así cada episodio ve una realización distinta pero reproducible. Al evaluar se usan las `EVAL_SEEDS`.
+- La versión de `main` ya funciona con los escenarios toy, incluye `tripinfo_path` y acepta rutas con espacios (el repo está bajo `Proyecto Final/`). Por eso `additional_sumo_cmd` se arma con `_ArgList`.
+
+## 2b. Utilidades de entrenamiento (`experiments/common.py`, ya en `main`)
+`load_config`, `resolve_run_dir(cfg)`, `save_config`, `set_seed`, `episode_seed(seed, ep)` y `TrainLogger(run_dir).log_episode(**fila)`, que escribe `train_log.csv` y TensorBoard. Todos los algoritmos los usan, para que los logs sean homogéneos.
 
 ## 3. Demanda (`env/demand.py`, rama `feat/env-reforma`)
 - `env/conteos/{pico,mediodia}.csv`, formato largo: `interseccion,aproximacion,movimiento,vehiculos_15min` (movimiento ∈ {recto, izquierda, derecha}). Por ahora son **sintéticos y provisionales** (lo dice un comentario en el CSV y `env/conteos/README.md`).
