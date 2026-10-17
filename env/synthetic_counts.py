@@ -67,7 +67,7 @@ def main(argv=None) -> None:
         path = OUT / f"{profile}.csv"
         with path.open("w", newline="") as fh:
             fh.write("# SINTETICO - PROVISIONAL (env/synthetic_counts.py). Reemplazar por conteos en video, ver README.md\n")
-            w = csv.writer(fh)
+            w = csv.writer(fh, lineterminator="\n")
             w.writerow(["interseccion", "aproximacion", "movimiento", "vehiculos_15min"])
             for inter, ap, mov, vph in movements(profile):
                 w.writerow([inter, ap, mov, int(round(vph / 4))])
