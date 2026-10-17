@@ -1,0 +1,44 @@
+# Informe tipo paper (PLAN §13)
+
+| Archivo | Contenido |
+|---|---|
+| `informe.md` | Fuente del informe en Markdown, en español. Fórmulas con `$...$` y `$$...$$` (KaTeX); figuras como `../figures/<nombre>.png` |
+| `render_pdf.py` | Markdown → HTML con KaTeX → PDF con Chrome headless |
+| `informe.html`, `informe.pdf` | Salidas generadas (ignoradas por git) |
+
+## Estado del borrador
+
+- Las secciones 1–6 y 9–11 describen lo que está implementado en el repositorio (red, demanda, líneas base, algoritmos, métricas y protocolo).
+- Las secciones 7–8 (resultados E1–E8) y partes del resumen y las conclusiones son **marcadores**: comentarios HTML `<!-- RESULTADOS: ... -->` y recuadros de figuras pendientes. No se escribió ningún número de resultados.
+- Los conteos, el ciclo de tiempo fijo y la referencia de validación son **sintéticos o provisionales**, y el informe lo dice explícitamente (secciones 4.3–4.5 y 9.2). Si se consiguen datos de campo, hay que actualizar esas secciones y quitar las advertencias.
+- Hay que completar a mano: integrantes, enlace al repositorio y fecha, los comentarios `COMPLETAR:` / `DATO:`, la tabla de la sección 11 (uso de IA) y la verificación de las referencias.
+
+## Cómo llenar los resultados
+
+```bash
+source scripts/env.sh
+python -m analysis.make_all          # figuras en docs/figures/, tablas en analysis/results/*.md
+```
+Los nombres de figura que espera el informe son los que genera `analysis/plots.py`: `E{1..6}_eval_bars.png`, `E{2..6}_learning_curves.png`, `E7_robustness.png`, `E8_fairness_reforma_pico.png` y `E8_fairness_cruce_pico.png`. La Figura 1 (`escenario_corredor.png`, captura de la red con los 5 semáforos) se guarda a mano en `docs/figures/`. Las tablas se copian desde `analysis/results/E*.md` en el lugar de cada comentario `RESULTADOS: tabla Ex`.
+
+## Cómo generar el PDF en esta Mac
+
+En esta máquina no hay LaTeX ni pandoc. El script convierte el Markdown en HTML con el paquete `markdown` de Python (si no está instalado, usa un conversor mínimo incluido en el script), carga KaTeX 0.16.9 desde cdnjs para renderizar las fórmulas e imprime el HTML a PDF con Google Chrome en modo headless. La única dependencia de red es el CDN de KaTeX, que resuelve Chrome al abrir el HTML.
+
+```bash
+source scripts/env.sh
+python docs/informe/render_pdf.py            # escribe docs/informe/informe.html e imprime el comando de Chrome
+python docs/informe/render_pdf.py --pdf      # además ejecuta Chrome y deja docs/informe/informe.pdf
+python docs/informe/render_pdf.py --pdf --final   # versión de entrega: oculta los marcadores RESULTADOS/COMPLETAR
+```
+
+- **Borrador vs. entrega.** Sin `--final`, los comentarios que empiezan con `RESULTADOS`, `COMPLETAR`, `FIGURA`, `DATO`, `PENDIENTE`, `INSTRUCCIONES` o `BORRADOR` se muestran como recuadros amarillos, para revisar qué falta. Con `--final` desaparecen. Las figuras que todavía no existen se dibujan como un recuadro con su nombre.
+- **Chrome no siempre termina solo** en headless en esta Mac: escribe el PDF y se queda abierto. Con `--pdf`, el script espera a que el archivo tenga un tamaño estable y luego cierra el proceso. Si se corre a mano el comando que imprime el script, hay que cerrarlo con Ctrl-C cuando aparezca el PDF.
+- **Sin Chrome.** Se puede abrir `informe.html` en cualquier navegador e imprimir a PDF (tamaño carta, sin encabezados ni pies de página).
+- El HTML se escribe junto a `informe.md` para que las rutas `../figures/` resuelvan bien.
+
+Reglas al editar `informe.md`:
+- Fórmulas en línea con `$...$` (sin espacio justo después del `$` inicial ni antes del final) y en bloque con `$$` en líneas propias. Se protegen antes de convertir el Markdown, así que `_`, `*` y `\` dentro de ellas no necesitan escaparse.
+- No usar `|` dentro de fórmulas que estén en tablas (usar `\mid` o `\lvert ... \rvert`).
+- Los marcadores para el equipo van en comentarios HTML que empiezan con una de las palabras clave de arriba. No anidar comentarios.
+- Los textos `<completar>` se muestran tal cual (el script los escapa).
