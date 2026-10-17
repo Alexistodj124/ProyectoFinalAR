@@ -41,6 +41,6 @@ python -c "from experiments.common import load_config; from agents.marl import q
   print(qmix.train(load_config('experiments/configs/E5/qmix.yaml', seed=0)))"
 # o, cuando esté en main: python -m experiments.train --config experiments/configs/E5/qmix.yaml --seed 0
 ```
-`train_log.csv`: `episode, env_steps, return` (equipo, sin escalar), `mean_waiting_time` (promedio de `system_mean_waiting_time` en el episodio), `epsilon` o `entropy`, `loss`, `episode_time`, `wall_time`. El checkpoint `model.pt` incluye la `MultiAgentSpec`, de modo que `load_policy` no necesita SUMO.
+`train_log.csv`: `episode, env_steps, return` (equipo, sin escalar), `mean_waiting_time` (promedio de `system_mean_waiting_time` en el episodio), `epsilon` o `entropy`, `loss`, `episode_time`, `wall_time`. El checkpoint `model.pt` incluye la `MultiAgentSpec`, de modo que `load_policy` no necesita SUMO. Cada `eval.every_episodes` episodios (y al final) se copia además a `checkpoints/ep{N:04d}/` (con `config.yaml`); `experiments.train` elige el mejor con `VAL_SEEDS` y lo deja en `best/` (ver `experiments/configs/README.md`).
 
 Tests: `python -m pytest -q tests/test_marl.py tests/test_marl_toy.py`. Incluyen un entorno falso heterogéneo (2, 4 y 3 fases; 4, 8 y 6 carriles; un agente que a veces falta) y entrenamientos cortos en `toy_grid2x2`.

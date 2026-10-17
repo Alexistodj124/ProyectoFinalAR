@@ -105,7 +105,8 @@ def cfg_tree(tmp_path, monkeypatch):
     write_cfg(root / "E3" / "b.yaml", name="b")
     write_cfg(root / "E5" / "m.yaml", exp="E5", name="m")
     write_cfg(root / "E7" / "robustness.yaml", exp="E7")
-    write_cfg(root / "E8" / "fairness.yaml", exp="E8")
+    write_cfg(root / "E8" / "fairness.yaml", exp="E8", algo=None)
+    write_cfg(root / "E8" / "m_fair.yaml", exp="E8", name="m_fair")
     monkeypatch.setattr(run_matrix, "CONFIG_DIR", root)
     return root
 
@@ -117,9 +118,16 @@ def test_build_jobs_matrix(cfg_tree, tmp_path):
     assert [j.phase for j in jobs if j.kind == "eval"] == [1]
     assert {j.phase for j in jobs if j.kind == "train"} == {2}
     assert [j.phase for j in jobs if j.kind == "robustness"] == [3] and [j.phase for j in jobs if j.kind == "fairness"] == [4]
+    e8 = [j for j in jobs if j.exp == "E8" and j.kind == "train"]  # E8 training configs run in phase 2
+    assert len(e8) == 2 and {j.phase for j in e8} == {2} and e8[0].run_dir.parent == tmp_path / "runs" / "E8" / "m_fair"
+    run_matrix.attach_upstream(jobs)
+    fair = next(j for j in jobs if j.kind == "fairness")
+    assert all(j.done_path in fair.upstream for j in e8)  # the E8 collection waits for / includes them
     t = next(j for j in jobs if j.name == "b" and j.seed == 1)
     assert t.run_dir == tmp_path / "runs" / "E3" / "b" / "seed1"
     assert "--eval" in t.cmd and "--run-dir" in t.cmd
+    assert "--no-select" not in t.cmd
+    assert "--no-select" in run_matrix.build_jobs(["E3"], [0], tmp_path / "runs", select=False)[0].cmd
 
 
 def test_quick_and_glob(cfg_tree, tmp_path):
@@ -182,15 +190,55 @@ def test_variant_parsing():
     assert robustness.parse_variant("pico_x13", "cruce") == ("cruce_pico_x13", False)
 
 
-def test_select_best_run(tmp_path):
-    for s, w in ((0, 30.0), (1, 12.0), (2, 20.0)):
-        d = tmp_path / "E3" / "dqn" / f"seed{s}"
-        d.mkdir(parents=True)
-        (d / "DONE").write_text("{}")
-        pd.DataFrame({"mean_waiting_time": [w, w]}).to_csv(d / "eval.csv", index=False)
+def _seed_run(root, s, val, ev, crit="total_delay"):
+    d = root / "E3" / "dqn" / f"seed{s}"
+    d.mkdir(parents=True)
+    (d / "DONE").write_text("{}")
+    (d / "config.yaml").write_text(f"seed: {s}\n")
+    pd.DataFrame({"mean_waiting_time": [ev, ev]}).to_csv(d / "eval.csv", index=False)  # EVAL_SEEDS: must be ignored
+    if val is not None:
+        pd.DataFrame({"checkpoint": ["ep0010", "ep0020"], "criterion": crit, "score": [val + 5, val],
+                      "selected": [False, True]}).to_csv(d / "selection.csv", index=False)
+    return d
+
+
+def test_select_best_run_by_validation_not_eval(tmp_path):
+    for s, val, ev in ((0, 30.0, 5.0), (1, 12.0, 40.0), (2, 20.0, 30.0)):
+        _seed_run(tmp_path, s, val, ev)
+    # seed0 has the best EVAL score but seed1 the best validation score: E7 must pick seed1
     assert robustness.select_run({"from": "E3/dqn/seed*", "select": "best"}, tmp_path).name == "seed1"
+    assert robustness.select_run({"from": "E3/dqn/seed*"}, tmp_path).name == "seed1"  # best is the default
+    assert [p.name for p in robustness.select_runs({"from": "E3/dqn/seed*", "select": "all"}, tmp_path)] == ["seed0", "seed1", "seed2"]
     assert robustness.select_run({"from": "E9/*"}, tmp_path) is None
     assert robustness.select_run({"run_dir": "x/y"}, tmp_path) == Path("x/y")
+    assert robustness.train_seed_of(tmp_path / "E3" / "dqn" / "seed2") == 2
+    with pytest.raises(ValueError):
+        robustness.select_runs({"from": "E3/dqn/seed*", "select": "eval"}, tmp_path)
+
+
+def test_select_prefers_total_delay_then_train_return(tmp_path):
+    _seed_run(tmp_path, 0, 3.0, 1.0, crit="mean_waiting_time")
+    _seed_run(tmp_path, 1, 50.0, 1.0, crit="total_delay")
+    d2 = _seed_run(tmp_path, 2, None, 1.0)  # no selection.csv: training return only
+    pd.DataFrame({"return": [-1.0, -1.0]}).to_csv(d2 / "train_log.csv", index=False)
+    assert robustness.run_score(d2)[0] == 2 and robustness.run_score(d2)[1] == pytest.approx(1.0)
+    assert robustness.select_run({"from": "E3/dqn/seed*"}, tmp_path).name == "seed1"
+
+
+def test_summarize_robustness_ci_over_train_seeds():
+    rows = []
+    for ts, base_val in ((0, 10.0), (1, 20.0), (2, 30.0)):
+        for ev_seed, eps in ((1000, -1.0), (1001, 1.0)):
+            rows.append({"method": "m", "base": "cruce", "variant": "pico", "train_seed": ts, "seed": ev_seed,
+                         "mean_waiting_time": base_val + eps})
+    rows += [{"method": "fixed", "base": "cruce", "variant": "pico", "train_seed": None, "seed": s, "mean_waiting_time": w}
+             for s, w in ((1000, 4.0), (1001, 6.0))]
+    s = robustness.summarize_robustness(pd.DataFrame(rows)).set_index("method")
+    assert s.loc["m", "n_train_seeds"] == 3 and s.loc["m", "ci_over"] == "train_seeds"
+    assert s.loc["m", "mean_waiting_time_mean"] == pytest.approx(20.0)
+    # per-seed means 10, 20, 30 -> sd 10, n 3: t(0.975, 2) * 10 / sqrt(3)
+    assert s.loc["m", "mean_waiting_time_ci95"] == pytest.approx(4.302653 * 10 / 3 ** 0.5, rel=1e-4)
+    assert s.loc["fixed", "ci_over"] == "eval_seeds" and s.loc["fixed", "n_train_seeds"] == 0
 
 
 def test_run_robustness_with_fakes(tmp_path, fake_algo, monkeypatch):
@@ -203,14 +251,24 @@ def test_run_robustness_with_fakes(tmp_path, fake_algo, monkeypatch):
         return orig(policy, scenario, seeds, **kw)
 
     mod.evaluate = ev
-    monkeypatch.setattr(registry, "load_policy", lambda algo, run_dir=None, cfg=None: (algo, run_dir))
-    d = tmp_path / "E3" / "x" / "seed0"
-    d.mkdir(parents=True)
-    (d / "DONE").write_text("{}")
+    loaded = []
+    monkeypatch.setattr(registry, "load_policy", lambda algo, run_dir=None, cfg=None: loaded.append(run_dir) or (algo, run_dir))
+    for s in (0, 1):
+        d = tmp_path / "E3" / "x" / f"seed{s}"
+        d.mkdir(parents=True)
+        (d / "DONE").write_text("{}")
+    (tmp_path / "E3" / "x" / "seed1" / "best").mkdir()  # selected checkpoint: must be what gets loaded
     cfg = {"variants": ["pico", "mediodia", "pico_incident"], "baselines": ["fixed"], "eval_seeds": 2,
            "incident": {"edge": "e1", "start": 10, "end": 20},
-           "learned": [{"label": "dummy_best", "algo": "dummy", "base": "cruce", "from": "E3/x/seed*"}]}
+           "learned": [{"label": "dummy_best", "algo": "dummy", "base": "cruce", "from": "E3/x/seed1"},
+                       {"label": "dummy_all", "algo": "dummy", "base": "cruce", "from": "E3/x/seed*", "select": "all"}]}
     df = robustness.run_robustness(cfg, tmp_path, tmp_path / "E7" / "robustness.csv")
+    assert str(tmp_path / "E3" / "x" / "seed1" / "best") in loaded and str(tmp_path / "E3" / "x" / "seed0") in loaded
+    assert set(df.loc[df["method"] == "dummy_all", "train_seed"]) == {0, 1}
+    assert set(df.loc[df["method"] == "dummy_all", "selection"]) == {"all"}
+    summ = pd.read_csv(tmp_path / "E7" / "robustness_summary.csv")
+    assert set(summ.loc[summ["method"] == "dummy_all", "ci_over"]) == {"train_seeds"}
+    df = df[df["method"] != "dummy_all"]
     assert set(df["method"]) == {"dummy_best", "fixed"}
     assert set(df["variant"]) == {"pico", "mediodia", "pico_incident"}
     assert ("cruce_mediodia", None) in seen

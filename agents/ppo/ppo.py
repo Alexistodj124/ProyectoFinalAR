@@ -29,7 +29,15 @@ from agents.base import Policy
 from agents.rewards import DEFAULT_TRAIN_REWARD, train_env_kwargs
 from env.reforma_env import make_gym_env
 from env.scenarios import get_scenario
-from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
+from experiments.common import (
+    TrainLogger,
+    episode_seed,
+    is_checkpoint_episode,
+    resolve_run_dir,
+    save_config,
+    set_seed,
+    snapshot_checkpoint,
+)
 
 DEFAULTS = dict(
     n_steps=None,  # None = one episode (num_seconds / delta_time = 720 for 3600 s at 5 s)
@@ -68,11 +76,13 @@ class EpisodeSeedWrapper(gym.Wrapper):
 
 
 class EpisodeLogCallback(BaseCallback):
-    """Writes one TrainLogger row per finished episode (same columns as DQN)."""
+    """Writes one TrainLogger row per finished episode (same columns as DQN) and calls
+    `on_episode_end(episodes_done)` (periodic checkpoints) after each one."""
 
-    def __init__(self, logger: TrainLogger):
+    def __init__(self, logger: TrainLogger, on_episode_end=None):
         super().__init__()
         self.tlog = logger
+        self.on_episode_end = on_episode_end
         self.episode = 0
         self.ep_return = 0.0
         self.wait_sum = 0.0
@@ -99,6 +109,8 @@ class EpisodeLogCallback(BaseCallback):
             )
             self.episode += 1
             self.ep_return, self.wait_sum, self.n = 0.0, 0.0, 0
+            if self.on_episode_end is not None:
+                self.on_episode_end(self.episode)
         return True
 
 
@@ -140,10 +152,25 @@ def train(cfg: dict) -> str:
         device=hp["device"],
         verbose=0,
     )
+    # The policy only needs model.zip (obs are not normalized); the VecNormalize stats are saved
+    # anyway (vecnormalize.pkl) so a checkpoint is complete if training is ever resumed/inspected.
+    files = ["model.zip"] + (["vecnormalize.pkl"] if isinstance(env, VecNormalize) else [])
+
+    def save_model() -> None:
+        model.save(str(run_dir / "model.zip"))
+        if isinstance(env, VecNormalize):
+            env.save(str(run_dir / "vecnormalize.pkl"))
+
+    def on_episode_end(done: int) -> None:
+        if done < total_episodes and is_checkpoint_episode(cfg, done, total_episodes):
+            save_model()
+            snapshot_checkpoint(run_dir, done, files)  # for validation-based model selection
+
     logger = TrainLogger(run_dir)
     # Same env-step budget as DQN: total_episodes * steps_per_episode.
-    model.learn(total_timesteps=total_episodes * steps_per_ep, callback=EpisodeLogCallback(logger))
-    model.save(str(run_dir / "model.zip"))
+    model.learn(total_timesteps=total_episodes * steps_per_ep, callback=EpisodeLogCallback(logger, on_episode_end))
+    save_model()
+    snapshot_checkpoint(run_dir, total_episodes, files)  # last checkpoint = final model
     logger.close()
     env.close()
     return str(run_dir)

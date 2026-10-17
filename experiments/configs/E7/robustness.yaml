@@ -17,8 +17,11 @@ incident:
 
 baselines: [fixed, actuated, max_pressure]
 
-# Agentes aprendidos. `from` = glob de run_dirs (relativo a --runs-dir); select: best = la semilla con
-# menor espera media en su eval.csv (si no hay, mayor retorno medio del último 10 % del train_log).
+# Agentes aprendidos. `from` = glob de run_dirs (relativo a --runs-dir). La semilla NO se elige con
+# EVAL_SEEDS (sesgo optimista): select: best (por defecto) = la semilla con mejor puntaje de validación
+# en su selection.csv (VAL_SEEDS; si no hay, mayor retorno medio del último 10 % del train_log);
+# select: all = todas las semillas (robustness_summary.csv da media ± IC95 entre semillas de
+# entrenamiento). Cada corrida se carga desde best/ (checkpoint elegido) si existe.
 # `base` decide la red: cruce (1 TLS, agentes individuales) o reforma (corredor, MARL).
 # Ajustar `from` al ganador de E3/E5/E6 cuando se conozcan los resultados.
 learned:

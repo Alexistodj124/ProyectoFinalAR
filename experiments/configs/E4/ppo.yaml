@@ -19,4 +19,4 @@ hparams:
   learning_rate: 0.0003
   net_arch: [64, 64]
   device: cpu
-eval: {scenarios: [cruce_pico, cruce_mediodia], every_episodes: 10, episodes: 3}
+eval: {scenarios: [cruce_pico, cruce_mediodia], every_episodes: 20, val_seeds: 2}

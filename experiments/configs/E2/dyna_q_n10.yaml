@@ -9,8 +9,8 @@ eval:
   scenarios:
   - cruce_pico
   - cruce_mediodia
-  every_episodes: 10
-  episodes: 3
+  every_episodes: 20   # checkpoint cada 20 episodios (y al final)
+  val_seeds: 2         # seleccion del checkpoint con VAL_SEEDS[:2] (experiments/train.py)
 hparams:
   reward_fn: diff-waiting-time-pending   # entrenamiento: espera + backlog de insercion (agents/rewards.py)
   thresholds: [0.15, 0.45, 0.8]   # 4 niveles de cola (bajo, medio, alto, lleno)

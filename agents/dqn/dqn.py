@@ -24,7 +24,15 @@ from agents.dqn.buffers import PrioritizedReplayBuffer, ReplayBuffer
 from agents.dqn.networks import make_q_network
 from env.reforma_env import make_gym_env
 from env.scenarios import get_scenario
-from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
+from experiments.common import (
+    TrainLogger,
+    episode_seed,
+    is_checkpoint_episode,
+    resolve_run_dir,
+    save_config,
+    set_seed,
+    snapshot_checkpoint,
+)
 
 DEFAULTS = dict(
     lr=2.5e-4,  # 1e-3 forgot the good policy late in 200-episode runs (backlog came back)
@@ -201,8 +209,11 @@ def train(cfg: dict) -> str:
             loss=float(np.mean(losses)) if losses else float("nan"),
             q_mean=float(np.mean(q_means)) if q_means else float("nan"),
         )
-        if hp["save_every"] and (ep + 1) % hp["save_every"] == 0:
+        ckpt = is_checkpoint_episode(cfg, ep + 1, total_episodes)
+        if ckpt or (hp["save_every"] and (ep + 1) % hp["save_every"] == 0):
             save(run_dir / "model.pt")
+        if ckpt:  # self-contained copy for validation-based model selection (experiments/train.py)
+            snapshot_checkpoint(run_dir, ep + 1, ["model.pt"])
 
     save(run_dir / "model.pt")
     logger.close()

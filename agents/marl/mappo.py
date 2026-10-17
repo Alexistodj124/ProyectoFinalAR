@@ -44,7 +44,15 @@ from agents.marl.common import (
     save_checkpoint,
 )
 from env.scenarios import get_scenario
-from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
+from experiments.common import (
+    TrainLogger,
+    episode_seed,
+    is_checkpoint_episode,
+    resolve_run_dir,
+    save_config,
+    set_seed,
+    snapshot_checkpoint,
+)
 
 DEFAULTS = dict(
     lr=5e-4,
@@ -248,8 +256,11 @@ def train(cfg: dict) -> str:
             approx_kl=mean("kl"),
             episode_time=round(time.time() - t0, 2),
         )
-        if (ep + 1) % h["save_every"] == 0:
+        ckpt = is_checkpoint_episode(cfg, ep + 1, int(cfg["total_episodes"]))
+        if ckpt or (ep + 1) % h["save_every"] == 0:
             save_checkpoint(run_dir, "mappo", spec, h, actor=actor, critic=critic)
+        if ckpt:  # self-contained copy for validation-based model selection (experiments/train.py)
+            snapshot_checkpoint(run_dir, ep + 1, ["model.pt"])
     save_checkpoint(run_dir, "mappo", spec, h, actor=actor, critic=critic)
     logger.close()
     runner.close()

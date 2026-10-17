@@ -50,7 +50,15 @@ from agents.marl.common import (
     save_checkpoint,
 )
 from env.scenarios import get_scenario
-from experiments.common import TrainLogger, episode_seed, resolve_run_dir, save_config, set_seed
+from experiments.common import (
+    TrainLogger,
+    episode_seed,
+    is_checkpoint_episode,
+    resolve_run_dir,
+    save_config,
+    set_seed,
+    snapshot_checkpoint,
+)
 
 DEFAULTS = dict(
     lr=1e-4,  # 5e-4 + hard target every 500 steps diverged (docs/ajuste_aprendizaje.md)
@@ -253,8 +261,11 @@ def train_joint(cfg: dict, algo: str, defaults: dict, make_agent: Callable[[Mult
             loss=round(float(np.mean(losses)), 6) if losses else float("nan"),
             episode_time=round(time.time() - t0, 2),
         )
-        if (ep + 1) % h["save_every"] == 0:
+        ckpt = is_checkpoint_episode(cfg, ep + 1, int(cfg["total_episodes"]))
+        if ckpt or (ep + 1) % h["save_every"] == 0:
             save_checkpoint(run_dir, algo, spec, h, agent=agent, **({"mixer": mixer} if mixer is not None else {}))
+        if ckpt:  # self-contained copy for validation-based model selection (experiments/train.py)
+            snapshot_checkpoint(run_dir, ep + 1, ["model.pt"])
     save_checkpoint(run_dir, algo, spec, h, agent=agent, **({"mixer": mixer} if mixer is not None else {}))
     logger.close()
     runner.close()
