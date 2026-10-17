@@ -31,6 +31,7 @@ export interface TickMessage {
   sims: Record<SimKey, SimState>;
   improvement_pct?: number | null;
   incidents?: string[]; // bordes cerrados segun el servidor
+  closed_lanes?: string[]; // carriles realmente cerrados (convencion de env/incidents.py)
   scenario?: string;
   profile?: string | null;
   speed?: number;
@@ -65,15 +66,24 @@ export interface Lane {
   shape: [number, number][];
   width: number;
 }
+// Borde (calle en un sentido): nombre de la calle y nodos de origen/destino.
+export interface EdgeInfo {
+  id: string;
+  name: string;
+  from: string;
+  to: string;
+}
 export interface Junction {
   id: string;
   shape: [number, number][];
 }
 // Un carril controlado por un semaforo: `idx` son las posiciones de la cadena de estado
 // (un carril puede tener varios enlaces: recto, izquierda...) y (x, y) su linea de alto.
+// `dirs[i]` es la direccion SUMO del enlace idx[i]: "s" recto, "l"/"L" izquierda, "r"/"R" derecha, "t" U.
 export interface Controlled {
   lane: string;
   idx: number[];
+  dirs: string[];
   x: number;
   y: number;
 }
@@ -87,6 +97,7 @@ export interface TlsInfo {
 export interface Network {
   scenario?: string;
   lanes: Lane[];
+  edges: EdgeInfo[];
   junctions: Junction[];
   tls: TlsInfo[];
   bbox: { minX: number; minY: number; maxX: number; maxY: number };
