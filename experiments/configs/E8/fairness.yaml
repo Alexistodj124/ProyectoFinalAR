@@ -1,0 +1,21 @@
+# E8 - Equidad: ¿se sacrifica a las calles transversales? Reúne los eval.csv de todos los métodos
+# y deja runs/E8/fairness.csv; analysis.plots / analysis.tables calculan de ahí
+#   * espera p95 por aproximación (columna p95_wait_by_approach, JSON)
+#   * espera máxima en calles transversales (max_wait_cross_streets)
+exp: E8
+# Globs relativos a --runs-dir. Los CSV deben tener las columnas del contrato §7.
+sources:
+  - "E1/*/eval*.csv"           # líneas base
+  - "E[2-6]/*/seed*/eval.csv"  # agentes aprendidos (evaluación final de train.py --eval)
+  - "E7/robustness.csv"        # perturbaciones (variant != pico se separan por la columna `variant`)
+scenarios: [cruce_pico, reforma_pico]   # null = todos
+methods: null                            # null = todos
+
+# Si la equidad sale mal (PLAN §8.2, último párrafo) se entrena una variante con penalización:
+#   r_t = r_t - lambda * max_w     (max_w = espera máxima en calles transversales, normalizada)
+# Se agrega como config E5/mappo_fair.yaml con hparams.fairness_penalty: {lambda: 0.5} y se reporta el
+# trade-off (espera media vs. espera máxima transversal) variando lambda en {0, 0.25, 0.5, 1}.
+# Este archivo no la entrena: solo documenta dónde entra (la implementa la rama de MARL).
+penalized_variant:
+  enabled: false
+  lambdas: [0.25, 0.5, 1.0]
