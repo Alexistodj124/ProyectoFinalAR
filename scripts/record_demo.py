@@ -241,6 +241,11 @@ class Demo:
         self.cdp, self.url = cdp, url.rstrip("/")
         self.net = None
         self.cursor = (W / 2, H * 0.55)
+        self.events: list[tuple[float, str]] = []  # (hora real, que paso): se pasa a segundos del clip en clips_log.json
+        self._label: str | None = None
+
+    def ev(self, desc: str):
+        self.events.append((time.time(), desc))
 
     # -- carga
     async def open(self):
@@ -288,8 +293,10 @@ class Demo:
         self.cursor = (x, y)
         await asyncio.sleep(pause)
 
-    async def click_xy(self, x: float, y: float, pause: float = 0.65):
+    async def click_xy(self, x: float, y: float, pause: float = 0.65, label: str | None = None):
         await self.move(x, y, pause)
+        self.ev(f"clic {label or self._label or f'({x:.0f},{y:.0f})'}")
+        self._label = None
         await self.cdp.js(f"window.__rec && window.__rec.ripple({x:.1f},{y:.1f})")
         for t in ("mousePressed", "mouseReleased"):
             await self.cdp.send("Input.dispatchMouseEvent", type=t, x=x, y=y, button="left", buttons=1 if t == "mousePressed" else 0, clickCount=1)
@@ -315,6 +322,7 @@ class Demo:
                 f".find(b => b.textContent.trim() === {json.dumps(text)})")
 
     async def seg(self, group: str, text: str, pause: float = 0.65):
+        self._label = f"{group} > {text}"
         await self.click_el(self.seg_button(group, text), pause)
 
     async def speed(self, label: str, pause: float = 0.5):  # "Pausa" | "1×" | "5×" | "20×"
@@ -328,7 +336,7 @@ class Demo:
         El menu nativo no se puede abrir en headless: se mueve el puntero y se fija el valor como lo haria React."""
         el = f"document.querySelectorAll('.controls select')[{index}]"
         x, y, w, h = await self.rect(el)
-        await self.click_xy(x + w / 2, y + h / 2, pause)
+        await self.click_xy(x + w / 2, y + h / 2, pause, label=f"select {'escenario' if index == 0 else 'politica'} = {value}")
         for _ in range(40):
             ok = await self.cdp.js(f"[...{el}.options].some(o => o.value === {json.dumps(value)})")
             if ok:
@@ -347,6 +355,7 @@ class Demo:
         x, y, w, h = await self.rect(el)
         frac = (n - 1) / 39
         await self.move(x + 8 + frac * (w - 16), y + h / 2, 0.5)
+        self.ev(f"deslizador Carros = {n}")
         await self.cdp.js(
             f"(() => {{ const s = {el}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
             f" set.call(s, '{n}'); s.dispatchEvent(new Event('input', {{bubbles: true}})); }})()")
@@ -358,8 +367,10 @@ class Demo:
         if cur != scenario:
             await self.set_select(0, scenario)
         await self.set_select(1, json.dumps({"algo": policy["algo"], "run": policy["run"]}, separators=(",", ":")))
+        self._label = "Reiniciar"
         await self.click_el("document.querySelector('.controls .reset')")
         await self.wait_reset(scenario, policy)
+        self.ev(f"reset listo ({scenario}, {policy['algo']}): t simulado ~0")
         if cur != scenario:
             self.net = None
             await asyncio.sleep(1.0)  # la pagina pide la red nueva (vista "Todo"; en un cruce aislado, el cruce)
@@ -436,16 +447,18 @@ class Demo:
     async def click_lane(self, edge: str, frac: float = 0.5, which: int = 1):
         x, y = await self.lane_point(edge, frac)
         sx, sy = await self.world_to_screen(x, y, which)
-        await self.click_xy(sx, sy)
+        await self.click_xy(sx, sy, label=f"carril {edge}")
 
     async def zoom_at(self, wx: float, wy: float, steps: int, which: int = 1, delay: float = 0.07):
         """Rueda del mouse sobre el punto del mundo (wx, wy): cada paso multiplica el zoom por 1.12 (max 24)."""
         await self.wait_view()
         sx, sy = await self.world_to_screen(wx, wy, which)
         await self.move(sx, sy, 0.6)
+        self.ev(f"rueda {steps:+d} pasos en ({wx}, {wy})")
         for _ in range(abs(steps)):
             await self.cdp.send("Input.dispatchMouseEvent", type="mouseWheel", x=sx, y=sy, deltaX=0, deltaY=-100 if steps > 0 else 100)
             await asyncio.sleep(delay)
+        self.ev(f"zoom listo (k = {(await self.view())['k']:.2f})")
         await asyncio.sleep(0.3)
 
     async def pan(self, dx: float, dy: float, which: int = 1, steps: int = 20):
@@ -465,9 +478,11 @@ class Demo:
 
     async def focus(self, tls: str = "all", pause: float = 0.65):
         """Clic en el boton de Vista de ese semaforo ("C12"...) o en "Todo" ("all"); espera la animacion."""
+        self._label = f"Vista > {tls}"
         await self.click_el(f"document.querySelector('.controls [data-focus={json.dumps(tls)}]')", pause)
         await asyncio.sleep(0.1)
         await self.wait_view()
+        self.ev(f"vista lista ({tls})")
 
     async def click_badge(self, tls: str, which: int = 1, pause: float = 0.65):
         """Clic en la tarjeta (o el nombre, en esquematico) del semaforo `tls` dentro del mapa."""
@@ -475,9 +490,10 @@ class Demo:
         b = await self.cdp.js(f"(window.__maps?.{key}?.badges?.() || []).find(b => b.id === {json.dumps(tls)}) || null")
         if not b:
             raise RuntimeError(f"no hay tarjeta visible para {tls}")
-        await self.click_xy(b["x"] + b["w"] / 2, b["y"] + b["h"] / 2, pause)
+        await self.click_xy(b["x"] + b["w"] / 2, b["y"] + b["h"] / 2, pause, label=f"tarjeta {tls} (mapa {key})")
         await asyncio.sleep(0.1)
         await self.wait_view()
+        self.ev(f"vista lista ({tls})")
 
     async def zoom_reset(self):
         """Vuelve a la vista completa con el boton "Todo" de Vista (animado; la simulacion sigue)."""
@@ -510,23 +526,25 @@ async def clip_a(d: Demo, rec):
         await d.speed("5×")
         await d.hold(14)
         await d.speed("20×")
-        await d.move(1500, 160, 0.4)
+        await d.move(1772, 880, 0.4)  # puntero fuera del mapa y de las tarjetas (abajo del panel)
         await d.hold(34)
 
 
-@clip("b_inyectar", "Inyectar 40 carros en la entrada sur (NB_S_C15) y en la 12 calle (C12_W_in)")
+@clip("b_inyectar", "Inyectar 40 carros en la entrada sur (NB_S_C15) y, con Vista 12, en la 12 calle (C12_W_in)")
 async def clip_b(d: Demo, rec):
     await d.reset_ui("reforma_pico", POL["mappo"], warm_to=240)
     await d.speed("5×")
     async with rec("b_inyectar"):
         await d.hold(1.0)
-        await d.zoom_at(110, 40, 7)  # mitad sur del corredor: entrada sur, 15, 14 y 12 calle
+        await d.zoom_at(100, 60, 9)  # rueda sobre la entrada sur: entrada, 15 y 14 calle de cerca
         await d.mode("Inyectar")
         await d.set_cars(40)
         await d.click_lane("NB_S_C15", 0.45)
-        await d.hold(6)
-        await d.click_lane("C12_W_in", 0.4)
-        await d.hold(24)
+        await d.hold(8)
+        await d.focus("C12")  # boton "12" de Vista: los dos mapas viajan a la 12 calle
+        await d.hold(0.8)
+        await d.click_lane("C12_W_in", 0.8)  # 12 calle (entrada oeste), cerca del cruce para que se vea
+        await d.hold(20)
         await d.mode("Ver")
         await d.hold(2)
     await d.zoom_reset()
@@ -552,7 +570,7 @@ async def clip_d(d: Demo, rec):
     await d.speed("5×")
     async with rec("d_incidente"):
         await d.hold(1.0)
-        await d.zoom_at(215, 690, 9)
+        await d.zoom_at(225, 720, 12)  # tramo 12-10a con zoom ~4: a partir de 2.4 px/m se dibujan barrera y conos
         await d.hold(1.0)
         await d.mode("Incidente")
         await d.click_lane("NB_C12_C10", 0.55)
@@ -609,8 +627,10 @@ async def clip_h(d: Demo, rec):
     async with rec("h_velocidad"):
         await d.hold(1.0)
         await d.speed("Pausa")
-        await d.hold(2.5)
-        await d.zoom_at(207, 653, 14)
+        await d.hold(2.0)
+        await d.focus("C12")  # boton "12" de Vista (animado) y luego la rueda para ver semaforos y carros de cerca
+        await d.hold(0.8)
+        await d.zoom_at(207, 653, 5)
         await d.hold(1.0)
         await d.speed("1×")
         await d.hold(9)
@@ -638,18 +658,21 @@ async def clip_j(d: Demo, rec):
     async with rec("j_mapa"):
         await d.hold(1.5)
         await d.focus("C12")  # boton "12" de Vista: los dos mapas se acercan juntos
-        await d.hold(6)
+        await d.move(1772, 880, 0.4)  # puntero fuera del mapa: se ven las luces, el contador y el destello
+        await d.hold(8)
         try:
             await d.click_badge("C10")  # tarjeta del semaforo de la 10a calle dentro del mapa RL
         except RuntimeError:
             await d.focus("C10")
-        await d.hold(6)
-        await d.seg("Iluminación", "Noche")
-        await d.hold(6)
+        await d.hold(5)
+        await d.seg("Iluminación", "Noche")  # a 1x: faros, alumbrado y semaforos de noche
+        await d.hold(7)
         await d.seg("Estilo", "Esquemático")
         await d.hold(5)
         await d.seg("Estilo", "Realista")
-        await d.seg("Iluminación", "Auto")
+        await d.hold(0.6)
+        await d.seg("Iluminación", "Día")
+        await d.hold(0.6)
         await d.focus("all")
         await d.hold(3)
 
@@ -670,15 +693,20 @@ async def run(args):
             print("captura:", args.screenshot)
             return
         rec_ = Recorder(cdp, out, keep_frames=args.keep_frames)
+        last_events: dict[str, dict] = {}
 
         @contextlib.asynccontextmanager
         async def rec(name):
             print(f"[grabando] {name}", flush=True)
             await rec_.start(name)
+            demo.events = []
             try:
                 yield
             finally:
                 await rec_.stop(name)
+                t0 = rec_.frames[0][1]
+                last_events[name] = {"duration_s": round(rec_._t_end - t0, 2),
+                                     "events": [[round(t - t0, 2), e] for t, e in demo.events if t >= t0 - 1]}
 
         names = args.clips.split(",") if args.clips else ORDER
         for n in names:
@@ -697,7 +725,7 @@ async def run(args):
             m = {k: st1["sims"][k]["metrics"] for k in ("fijo", "rl")}
             log.append({"clip": n, "desc": CLIPS[n][0], "seconds": round(time.time() - t0, 1),
                         "end_t": st1.get("t"), "policy": st1.get("policy"), "improvement_pct": st1.get("improvement_pct"),
-                        "metrics_end": m, "start_t": st0.get("t")})
+                        "metrics_end": m, "start_t": st0.get("t"), **last_events.get(n, {})})
             print(f"   fin {n}: t={st1.get('t')} mejora={st1.get('improvement_pct')} pol={st1['policy']['label']}", flush=True)
             log_file.write_text(json.dumps(sorted(log, key=lambda e: ORDER.index(e["clip"])), indent=2, ensure_ascii=False))
 

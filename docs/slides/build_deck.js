@@ -545,15 +545,15 @@ pres.addSection({ title: "Demo y cierre" });
     "«Mejora» = espera en vivo, no la demora total evaluada"],
     { x: 9.35, y: 1.6, w: 3.4, h: 3.6, fontSize: 16, objectName: "demo lista" });
   card(s, 9.3, 5.25, 3.43, 1.0, "tarjeta plan b");
-  txt(s, "Plan B: video de 3:46", { x: 9.5, y: 5.25, w: 3.1, h: 1.0, fontSize: 16, bold: true, color: S.amber,
+  txt(s, "Plan B: video de 4:06", { x: 9.5, y: 5.25, w: 3.1, h: 1.0, fontSize: 16, bold: true, color: S.amber,
     valign: "middle", objectName: "plan b" });
   note(s, "Demo en vivo",
-    "Ahora la demo. Son dos simulaciones de SUMO corriendo en paralelo con la misma demanda y la misma semilla: a la " +
-    "izquierda el semáforo de tiempo fijo y a la derecha MAPPO, el modelo entrenado real. Vamos a: uno, arrancar en " +
+    "Ahora la demo. Son dos simulaciones de SUMO corriendo en paralelo con la misma demanda y la misma semilla: " +
+    "arriba el semáforo de tiempo fijo y abajo MAPPO, el modelo entrenado real. Vamos a: uno, arrancar en " +
     "hora pico y acelerar para ver cómo se separan las curvas; dos, inyectar carros en la entrada sur y en la 12 " +
     "calle; tres, cerrar dos carriles entre la 12 y la 10a calle y ver cómo crece la cola. Una aclaración: la tarjeta " +
     "«Mejora» usa la espera promedio en vivo, que no es la demora total de la evaluación; los números oficiales son " +
-    "los que ya mostramos. Si algo falla, tenemos el video de respaldo de tres minutos y medio.");
+    "los que ya mostramos. Si algo falla, tenemos el video de respaldo de unos cuatro minutos.");
 }
 
 // 16. Ética y limitaciones
