@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Experiment outputs (results that go into the report are copied to docs/ or analysis/results/)
+runs/
+outputs/
+wandb/
+*.tfevents.*
+env/routes/cache/
+
+# SUMO run artifacts
+*_tripinfo*.xml
+*_emissions*.xml
+*.log
+
+# Web
+web/frontend/node_modules/
+web/frontend/dist/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/

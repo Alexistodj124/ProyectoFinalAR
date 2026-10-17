@@ -1,0 +1,30 @@
+# SUMO (binaries via pip; works on macOS arm64 and Linux/Colab)
+eclipse-sumo==1.28.0
+libsumo==1.28.0
+sumolib==1.28.0
+traci==1.28.0
+sumo-rl==1.4.5
+
+# RL
+gymnasium>=1.0
+pettingzoo==1.24.3  # sumo-rl 1.4.5 breaks with >=1.25 (agent_selector became a module)
+stable-baselines3>=2.3
+torch>=2.2
+
+# Data / analysis
+numpy
+pandas
+scipy
+matplotlib
+pyyaml
+tensorboard
+tqdm
+requests
+
+# Web demo
+fastapi
+uvicorn[standard]
+websockets
+
+# Tests
+pytest
