@@ -2,6 +2,8 @@
 
 Antes de lanzar la matriz completa (E2 a E6 con 5 semillas) hay que comprobar que cada algoritmo **aprende de verdad** en los escenarios calibrados de Reforma (commit `3960102`) y fijar el presupuesto de entrenamiento. Este documento resume las corridas de sanidad, lo que se encontró, lo que se cambió (con números de antes y después) y el presupuesto final.
 
+> **Qué es histórico en este documento.** Las corridas de sanidad se midieron con la política del **último** episodio, con 3 semillas de evaluación y con el max-pressure anterior a su corrección (conjuntos de carriles en vez de enlaces, presión por ocupación y `max_green` forzado). Después se agregaron la selección del checkpoint por validación (`best/`) y las variantes de equidad (E8). Las filas de **líneas base de §5** ya son las de E1 con el max-pressure corregido (10 semillas de evaluación); las cifras de los agentes RL de §3 a §5 siguen siendo las de sanidad y no se midieron con la evaluación actual.
+
 ## 1. Protocolo de sanidad
 
 - **Entrenamiento:** semilla 0, `python -m experiments.train --config <cfg> --total-episodes N --run-dir runs/_sanity/<nombre>` con `LIBSUMO_AS_TRACI=1` y `OMP_NUM_THREADS=1`. Hubo como máximo 5 procesos a la vez en la Mac de 10 núcleos.
@@ -10,7 +12,7 @@ Antes de lanzar la matriz completa (E2 a E6 con 5 semillas) hay que comprobar qu
 - **Métricas.** Se reportan la media y el IC95 (t de Student con 3 semillas, así que los intervalos son anchos):
   - `espera`: tiempo de espera medio por vehículo **insertado** (`mean_waiting_time` del contrato §7). Es la métrica oficial de los objetivos.
   - `backlog`: porcentaje de los vehículos del archivo de rutas que SUMO no logró insertar en la hora porque su carril de entrada estaba lleno.
-  - `demora total`: la espera más el `departDelay` de los insertados, más `3600 − depart` para los que nunca entraron, dividida entre **todos** los vehículos de la demanda. Es la métrica que no se puede "ganar" dejando autos fuera de la red. El script de diagnóstico es `evalx.py`, que no está en el repo. Su lógica es la de `env.validate.loaded_vehicles` aplicada al tripinfo.
+  - `demora total`: la espera más el `departDelay` de los insertados, más `3600 − depart` para los que nunca entraron, dividida entre **todos** los vehículos de la demanda. Es la métrica que no se puede "ganar" dejando autos fuera de la red. En las corridas de sanidad se calculó con un script de diagnóstico (`evalx.py`, que no está en el repo) cuya lógica es la de `env.validate.loaded_vehicles` aplicada al tripinfo. Hoy `experiments/evaluate.py` la reporta como `total_delay`, junto con `loaded`, `inserted`, `backlog_pct` y `mean_depart_delay` (`docs/ARCHITECTURE.md` §7).
 
 ## 2. Tiempo de pared por episodio (3600 s, libsumo)
 
@@ -49,6 +51,8 @@ La primera tanda (v0) se corrió con los hiperparámetros originales. A primera 
 | max-pressure | reforma_pico | 86.3 ± 23.8 | 10.73 % | 207.0 ± 33.5 |
 | IDQN, 30 ep | reforma_pico | 55.8 ± 18.8 | **13.17 %** | 249.0 ± 97.3 |
 | QMIX, 30 ep | reforma_pico | 299.6 ± 41.0 | 36.97 % | 775.1 ± 77.3 |
+
+Las filas de líneas base de esta tabla son de la primera tanda (3 semillas, max-pressure anterior a su corrección); se dejan porque son el contexto del diagnóstico. Los valores actuales de las líneas base están en §5.
 
 **Diagnóstico.** Todos los agentes aprendieron a **cerrar una entrada**. En el cruce, con DQN y la semilla 1000, 195 de los 2115 vehículos NB nunca entraron, mientras que la espera de los SB bajó a 3.9 s. La causa está en la recompensa `diff-waiting-time` de sumo-rl, que solo cuenta la espera acumulada de los vehículos que están **sobre** los carriles de entrada. Cuando un carril se llena, su penalización queda acotada por su capacidad (unos 37 autos por carril de 284 m), y la demanda que no cabe espera fuera de la red sin costo alguno. Con la demanda calibrada (cerca de la capacidad), dejar un acceso "estacionado" es una política óptima para esa recompensa. Además, la métrica `mean_waiting_time` premia ese comportamiento porque solo promedia sobre los vehículos insertados (nota 2 del paso anterior para el integrador).
 
@@ -152,23 +156,27 @@ El cambio ayudó claramente a Q-Learning pero no a Dyna-Q con esta semilla. La p
 
 ## 5. Resultado de sanidad con la configuración final
 
-La semilla de entrenamiento es 0 y la evaluación usa las semillas 1000 a 1002. "vs fijo" compara la espera media, que es la métrica de los objetivos. La demora total se agrega para que el lector vea el backlog.
+Hay dos tipos de filas, que **no se midieron igual**:
+- **Líneas base** (tiempo fijo, actuado y max-pressure): son las de E1 con el max-pressure corregido, 10 semillas de evaluación (1000 a 1009), 3600 s, media ± IC95.
+- **Agentes RL: números históricos** de las corridas de sanidad. Semilla de entrenamiento 0, evaluación con las semillas 1000 a 1002 y política del **último** episodio (todavía sin selección por validación), contra la evaluación y el max-pressure de esa época. Se conservan para ver cómo evolucionó el ajuste; no son resultados de la matriz.
 
-Son los YAML finales de `experiments/configs/` con 200 episodios. Las únicas excepciones son las corridas marcadas con *, que usan exactamente los mismos hiperparámetros con `--total-episodes` explícito.
+"vs fijo" compara la espera media, que es la métrica de los objetivos. En las filas RL se calculó contra el tiempo fijo de la corrida de sanidad (29.2 s en el cruce, 77.7 s en el corredor, 3 semillas); contra el fijo de E1 (31.3 s y 77.1 s) los porcentajes cambian unos puntos. La demora total se agrega para que el lector vea el backlog.
+
+Los agentes son los YAML finales de `experiments/configs/` con 200 episodios. Las únicas excepciones son las corridas marcadas con *, que usan exactamente los mismos hiperparámetros con `--total-episodes` explícito.
 
 | Método | Escenario | Espera media [s] | vs fijo | Backlog | Demora total [s] |
 |---|---|---|---|---|---|
-| tiempo fijo | cruce_pico | 29.2 ± 15.0 | — | 0.21 % | 31.6 ± 17.4 |
-| actuado | cruce_pico | 29.0 ± 2.6 | −1 % | 0.72 % | 37.9 ± 11.8 |
-| max-pressure | cruce_pico | 27.7 ± 1.7 | −5 % | 2.53 % | 65.8 ± 38.6 |
+| tiempo fijo (E1) | cruce_pico | 31.3 ± 5.1 | — | 0.3 % | 33.6 ± 6.7 |
+| actuado (E1) | cruce_pico | 29.0 ± 1.0 | −7 % | 0.8 % | 38.0 ± 6.4 |
+| max-pressure (E1) | cruce_pico | 16.7 ± 2.0 | −47 % | 0.3 % | 19.8 ± 5.8 |
 | Q-Learning | cruce_pico | 18.7 ± 3.9 | −36 % | 2.07 % | 44.2 ± 56.9 |
 | Dyna-Q n=10 | cruce_pico | 13.7 ± 0.1 | −53 % | 6.71 % | 113.4 ± 26.1 |
 | DQN d+d+PER | cruce_pico | 18.5 ± 7.5 | **−37 %** | 0.29 % | 23.7 ± 19.7 |
 | PPO | cruce_pico | 15.2 ± 2.8 | **−48 %** | 1.16 % | 30.5 ± 35.5 |
 | PPO, 100 ep* | cruce_pico | 17.1 ± 7.1 | −41 % | 0.31 % | 20.8 ± 16.9 |
-| tiempo fijo | reforma_pico | 77.7 ± 20.0 | — | 0.05 % | 78.7 ± 19.3 |
-| actuado | reforma_pico | 58.1 ± 16.8 | −25 % | 0.80 % | 70.5 ± 17.4 |
-| max-pressure | reforma_pico | 86.3 ± 23.8 | +11 % | 10.73 % | 207.0 ± 33.5 |
+| tiempo fijo (E1) | reforma_pico | 77.1 ± 7.7 | — | 0.2 % | 79.1 ± 8.5 |
+| actuado (E1) | reforma_pico | 57.9 ± 4.7 | −25 % | 0.4 % | 63.4 ± 6.1 |
+| max-pressure (E1) | reforma_pico | 40.1 ± 2.0 | −48 % | 0.1 % | 41.7 ± 2.5 |
 | IDQN | reforma_pico | 50.4 ± 5.4 | **−35 %** | 4.32 % | 98.8 ± 25.8 |
 | QMIX | reforma_pico | 58.4 ± 12.2 | **−25 %** | 0.20 % | 59.7 ± 13.0 |
 | QMIX, 80 ep* | reforma_pico | 37.0 ± 2.4 | −52 % | 0.14 % | 38.5 ± 2.5 |
@@ -181,8 +189,29 @@ Las diferencias entre QMIX con 80 y con 200 episodios, y entre PPO con 100 y con
 - **DQN y PPO le ganan al tiempo fijo en `cruce_pico`** en espera media: 18.5 y 15.2 a 17.1 s, contra 29.2 s. En demora total, contando el backlog, quedan **a la par o algo mejor** (23.7 y 20.8 a 30.5 s, contra 31.6 s); los IC95 se solapan con 3 semillas.
 - **En `reforma_pico`, los tres métodos de E5 (IDQN, QMIX y MAPPO) le ganan al tiempo fijo en espera media** (50.4, 58.4 y 39.8 s, contra 77.7 s); comm también (37.0 s). En demora total, QMIX (59.7 s) y comm (38.3 s) también mejoran al fijo (78.7 s), y MAPPO queda a la par (71.9 s). IDQN la empeora (98.8 s), porque todavía deja 4 % de backlog en la entrada NB.
 - QMIX deja sin servir una calle transversal en una de las semillas (espera máxima de 1573 s). Hay que vigilarlo en E8 (equidad).
-- **Max-pressure no es la referencia que hay que vencer.** En el cruce es la mejor línea base en espera media (27.7 s), aunque con 2.5 % de backlog. En el corredor calibrado se traba (nota 1 del paso anterior para el integrador). Ganarle en el cruce no era requisito. DQN y PPO le ganan en espera, pero con 3 semillas no se puede afirmar una mejora robusta en todas las métricas.
+- **Max-pressure es ahora una línea base fuerte, no una referencia fácil.** Después de este documento se corrigió (conjuntos de carriles en vez de enlaces, presión por ocupación y `max_green` forzado), y con eso dejó de trabar el corredor y de dejar autos fuera. En E1 es la mejor línea base en `cruce_pico` (16.7 s de espera y 19.8 s de demora total, contra 31.3 y 33.6 del fijo), en `reforma_pico` (40.1 y 41.7, contra 77.1 y 79.1) y en `reforma_pico_x13` (60.2 y 252.2, contra 123.1 y 345.7); en `reforma_mediodia` gana el actuado (18.2 y 18.7, contra 20.5 y 21.1). Por eso los agentes RL se comparan contra él, y no solo contra el tiempo fijo (tabla de E1 más abajo). Las cifras de sanidad de este documento (1 semilla de entrenamiento, 3 de evaluación, política del último episodio) no bastan para decidir contra ese max-pressure. Como referencia, en `cruce_pico` DQN (18.5 s de espera, 23.7 s de demora total) queda por encima de él en las dos métricas, y PPO (15.2 y 30.5) queda parecido en espera (16.7) pero peor en demora total (19.8). En `reforma_pico`, QMIX con 200 episodios (58.4 y 59.7) queda por encima; comm (37.0 y 38.3), QMIX con 80 episodios (37.0 y 38.5) y MAPPO en espera (39.8, aunque 71.9 de demora total) quedan en el rango de max-pressure (40.1 y 41.7). Lo decide la matriz, con 5 semillas, el checkpoint elegido por validación y la evaluación final en `EVAL_SEEDS`.
 - Los métodos tabulares aprenden (el retorno mejora de −4800 a −400) y le ganan al fijo en espera, pero siguen dejando backlog (2 % Q-L y 7 % Dyna-Q). Su demora total es peor y muy variable. Es una limitación del estado discreto, parcialmente observable: no ve los vehículos pendientes ni cuánto lleva la fase en verde. Es un resultado de E2 en sí mismo (PLAN §14).
+
+### Líneas base actuales (E1)
+
+`python -m experiments.run_matrix --exp E1`: 10 semillas de evaluación (1000 a 1009), 3600 s, media ± IC95. "vs fijo" es sobre la espera media. Ninguna línea base tuvo teletransportes. Estos números reemplazan a los de las líneas base de la primera tanda (§3), que usaban el max-pressure anterior a su corrección.
+
+| Escenario | Método | Espera media [s] | vs fijo | Backlog | Demora total [s] |
+|---|---|---|---|---|---|
+| cruce_pico | tiempo fijo | 31.3 ± 5.1 | — | 0.3 % | 33.6 ± 6.7 |
+| cruce_pico | actuado | 29.0 ± 1.0 | −7 % | 0.8 % | 38.0 ± 6.4 |
+| cruce_pico | max-pressure | **16.7 ± 2.0** | −47 % | 0.3 % | **19.8 ± 5.8** |
+| reforma_pico | tiempo fijo | 77.1 ± 7.7 | — | 0.2 % | 79.1 ± 8.5 |
+| reforma_pico | actuado | 57.9 ± 4.7 | −25 % | 0.4 % | 63.4 ± 6.1 |
+| reforma_pico | max-pressure | **40.1 ± 2.0** | −48 % | 0.1 % | **41.7 ± 2.5** |
+| reforma_mediodia | tiempo fijo | 29.9 ± 0.3 | — | 0.0 % | 30.4 ± 0.3 |
+| reforma_mediodia | actuado | **18.2 ± 0.5** | −39 % | 0.0 % | **18.7 ± 0.5** |
+| reforma_mediodia | max-pressure | 20.5 ± 0.3 | −31 % | 0.0 % | 21.1 ± 0.3 |
+| reforma_pico_x13 | tiempo fijo | 123.1 ± 3.5 | — | 15.7 % | 345.7 ± 9.7 |
+| reforma_pico_x13 | actuado | 79.4 ± 3.8 | −36 % | 15.2 % | 320.4 ± 11.9 |
+| reforma_pico_x13 | max-pressure | **60.2 ± 5.3** | −51 % | 12.7 % | **252.2 ± 11.5** |
+
+En negrita, la mejor línea base de cada escenario. En `reforma_pico_x13` (pico + 30 %) las tres líneas base dejan entre 12.7 % y 15.7 % de la demanda sin insertar: la red queda sobresaturada y por eso la demora total (252 a 346 s) es mucho mayor que la espera media.
 
 ## 6. Presupuesto final (PLAN §8)
 
@@ -207,10 +236,12 @@ Dentro de cada experimento, todos los algoritmos tienen el mismo número de paso
 | E6 | 10 | ≈ 14 200 | ≈ 2 600 |
 | **Total** | 75 | ≈ 52 000 | ≈ 10 000 |
 
-Son unos 62 000 proceso·s. Divididos entre 8 trabajos dan unas 2.2 h ideales. Con 8 procesos el SUMO de cada uno va algo más lento que con 5 (factor de 1.25 a 1.3), y al final quedan las corridas largas de E5/E6 (unos 30 min cada una). La estimación queda en **unas 3 h a 3.5 h**, más unos 10 min de E1, E7 y E8. Entra con holgura en la ventana de 6 a 10 h, aunque otros procesos compartan la CPU. No hace falta Colab. Si se quisiera, E5/E6 (25 corridas, unos 2/3 del costo) son lo que conviene mandar a Colab, una sesión por semilla.
+Son unos 62 000 proceso·s. Divididos entre 8 trabajos dan unas 2.2 h ideales. Con 8 procesos el SUMO de cada uno va algo más lento que con 5 (factor de 1.25 a 1.3), y al final quedan las corridas largas de E5/E6 (unos 30 min cada una). La estimación original fue de **unas 3 h a 3.5 h**, más unos 10 min de E1, E7 y E8.
+
+Esa estimación es anterior a la selección del checkpoint por validación (cerca de 10 % más) y a las variantes de equidad de E8 (`qmix_fair` y `comm_fair`, 10 corridas del tamaño de E5/E6). Con ellas, la matriz completa (88 trabajos) queda en **unas 4 a 5 h con `--jobs 8`**. No hace falta Colab; si se quisiera, E5/E6/E8 (35 corridas, la mayor parte del costo) son lo que conviene mandar a Colab. Tiempos por experimento y pasos: `docs/COLAB.md`.
 
 ## 7. Notas y limitaciones
 - Todo esto es **una sola semilla de entrenamiento** evaluada con 3 semillas de demanda. Los IC95 son anchos y la diferencia entre variantes de DQN de E3 queda dentro del ruido: vanilla 27.4 / 29.0, double 17.8 / 37.7, double+dueling 17.1 / 66.0, d+d+PER 20.4 / 27.8 (espera / demora total, 100 episodios, lr 1e-3). Por eso `E4/dqn_best.yaml` conserva los tres flags. Si E3 con 5 semillas muestra una ganadora clara, hay que cambiarlo.
-- La política que se evalúa es la del **último** episodio. Las curvas de DQN y de los métodos MARL de valor siguen oscilando incluso con ε = 0.05. Elegir el mejor checkpoint con una validación aparte mejoraría los números, pero no se hizo para no tocar `experiments/`.
+- Las cifras de este documento son de la política del **último** episodio, cuyas curvas (DQN y los métodos MARL de valor) siguen oscilando incluso con ε = 0.05. Eso se corrigió después: ahora cada corrida guarda checkpoints cada 20 episodios, los evalúa en `VAL_SEEDS` (2000 a 2004) con `total_delay` como criterio y copia el mejor a `best/`; la evaluación final (`eval.csv`) y E7 cargan ese **checkpoint elegido por validación** y usan `EVAL_SEEDS`. Los números de arriba no se volvieron a medir con ese procedimiento. Detalle en `experiments/configs/README.md`.
 - `idqn_neighbor_obs` no se corrió por separado. Usa el mismo aprendiz y los mismos hiperparámetros que IDQN y solo agrega las colas de los vecinos a la entrada.
-- La comparación con `mean_waiting_time` sola sigue siendo engañosa cuando hay backlog. Se recomienda que `experiments/metrics.py` agregue el backlog de inserción o la demora total (ver las notas para el integrador del reporte).
+- La comparación con `mean_waiting_time` sola sigue siendo engañosa cuando hay backlog. Por eso `experiments/evaluate.py` ya reporta `backlog_pct` y `total_delay` (`docs/ARCHITECTURE.md` §7), y la selección de checkpoints usa `total_delay`.
