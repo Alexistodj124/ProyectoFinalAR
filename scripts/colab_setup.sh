@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Colab setup (Python 3.12, Linux). Usage from a notebook cell:
-#   !GITHUB_TOKEN=... bash scripts/colab_setup.sh      (or run the "Clonar" cell of notebooks/colab_train.ipynb)
+#   !GITHUB_TOKEN=... bash scripts/colab_setup.sh      (notebooks/colab_train.ipynb does the same in its cells 0.3 and 0.4)
 # Idempotent: safe to run again after a runtime restart.
 set -euo pipefail
 
@@ -12,8 +12,12 @@ if [ ! -d "$REPO_DIR/.git" ]; then
   : "${GITHUB_TOKEN:?export GITHUB_TOKEN (Colab secrets / getpass) to clone the private repo}"
   git clone --branch "$BRANCH" "https://${GITHUB_TOKEN}@${REPO_URL}" "$REPO_DIR"
   git -C "$REPO_DIR" remote set-url origin "https://${REPO_URL}"  # do not keep the token in .git/config
+elif [ -n "${GITHUB_TOKEN:-}" ]; then
+  # the origin URL has no token, so the pull of the private repo needs it again (HTTP header: not stored anywhere)
+  AUTH="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+  git -C "$REPO_DIR" -c "http.extraheader=AUTHORIZATION: basic $AUTH" pull --ff-only || echo "pull skipped (local changes?)"
 else
-  git -C "$REPO_DIR" pull --ff-only || echo "pull skipped (local changes?)"
+  echo "GITHUB_TOKEN not set: git pull skipped"
 fi
 cd "$REPO_DIR"
 
