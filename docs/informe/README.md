@@ -19,7 +19,7 @@
 source scripts/env.sh
 python -m analysis.make_all          # figuras en docs/figures/, tablas en analysis/results/*.md
 ```
-Los nombres de figura que espera el informe son los que genera `analysis/plots.py`: `E{1..6}_eval_bars.png`, `E{2..6}_learning_curves.png`, `E7_robustness.png`, `E8_fairness_reforma_pico.png` y `E8_fairness_cruce_pico.png`. La Figura 1 (`escenario_corredor.png`, captura de la red con los 5 semáforos) se guarda a mano en `docs/figures/`. Las tablas se copian desde `analysis/results/E*.md` en el lugar de cada comentario `RESULTADOS: tabla Ex`.
+Además de las de abajo, `make_all` genera `resumen_demora_total`, `E7_degradation`, `E8_tradeoff_<escenario>`, `CO2_reforma_pico`, `seleccion_validacion_marl` y `seleccion_validacion_agente_unico`; `analysis/results/RESUMEN.md` lista todas con su descripción y las respuestas de E1 a E8. Los nombres de figura que espera el informe son los que genera `analysis/plots.py`: `E{1..6}_eval_bars.png`, `E{2..6}_learning_curves.png`, `E7_robustness.png`, `E8_fairness_reforma_pico.png` y `E8_fairness_cruce_pico.png`. La Figura 1 (`escenario_corredor.png`, captura de la red con los 5 semáforos) se guarda a mano en `docs/figures/`. Las tablas se copian desde `analysis/results/E*.md` en el lugar de cada comentario `RESULTADOS: tabla Ex`.
 
 ## Cómo generar el PDF en esta Mac
 

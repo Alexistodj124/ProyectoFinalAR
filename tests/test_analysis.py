@@ -81,8 +81,8 @@ def test_bars_fairness_robustness(runs, tmp_path):
 def test_tables(runs, tmp_path):
     out = tables.make_tables("E1", runs, tmp_path / "t", latex=True)
     md = (tmp_path / "t" / "E1_eval.md").read_text()
-    assert "## cruce_pico" in md and "±" in md and "**" in md
-    best = [l for l in md.split("## cruce_pico")[1].splitlines() if "max_pressure" in l][0]
+    assert "(`cruce_pico`)" in md and "±" in md and "**" in md
+    best = [l for l in md.split("(`cruce_pico`)")[1].splitlines() if "Max-pressure" in l][0]
     assert "**" in best  # max_pressure has the lowest waiting time
     assert any(p.suffix == ".tex" for p in out)
     assert "Δ%" in "".join(p.read_text() for p in tables.make_tables("E7", runs, tmp_path / "t"))
@@ -94,9 +94,9 @@ def test_tables(runs, tmp_path):
 def test_make_all_skips_missing(runs, tmp_path, capsys):
     made = make_all.make_all(runs, tmp_path / "f", tmp_path / "t")
     assert made["E1"] and made["E3"] and made["E7"] and made["E8"]
-    assert made["E2"] == [] and made["E6"] == []
+    assert made["E2"] == [] and made["E6"] == []  # sin corridas propias (las líneas base solas no cuentan)
     assert "E2] no data" in capsys.readouterr().out
 
 
 def test_empty_runs_dir(tmp_path):
-    assert make_all.make_all(tmp_path / "none", tmp_path / "f", tmp_path / "t") == {e: [] for e in make_all.EXPS}
+    assert make_all.make_all(tmp_path / "none", tmp_path / "f", tmp_path / "t") == {e: [] for e in [*make_all.EXPS, "extra"]}
