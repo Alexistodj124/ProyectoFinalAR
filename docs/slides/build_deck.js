@@ -469,6 +469,8 @@ pres.addSection({ title: "Resultados" });
     fill: { color: HEX.bg }, objectName: "tabla E7" });
   caption(s, "Demora total media de 10 episodios. Agentes: una semilla por familia, elegida por validación (favorece a los agentes).",
     5.55, MX, 7.7);
+  caption(s, "Cruce C12 con incidente (2 de 3 carriles de la aproximación sur cerrados): max-pressure 158, DQN 190, " +
+    "PPO 192, actuado 201, fijo 228 s/veh.", 6.05, MX, 7.7);
   card(s, 8.7, 1.6, 4.03, 2.2, "tarjeta x13");
   s.addText("+48 %", { x: 8.95, y: 1.7, w: 3.6, h: 0.8, fontSize: 40, bold: true, color: S.red, margin: 0,
     valign: "middle", isTextBox: true, objectName: "cifra x13" });
@@ -482,7 +484,8 @@ pres.addSection({ title: "Resultados" });
   note(s, "E7 robustez",
     "E7 pregunta si el mejor agente generaliza. A mediodía, una hora que no vio, todos los agentes siguen ganándole " +
     "al tiempo fijo, y MAPPO tiene la menor demora del corredor. Con el carril cerrado, MAPPO y comunicación mejoran " +
-    "al fijo y al actuado, pero no a max-pressure. La caída está con 30 % más demanda: MAPPO sube a 373 segundos, " +
+    "al fijo y al actuado, pero no a max-pressure. En el cruce aislado, con dos carriles cerrados en la aproximación " +
+    "sur, DQN y PPO mejoran 16 % al tiempo fijo pero quedan 21 % por detrás de max-pressure. La caída está con 30 % más demanda: MAPPO sube a 373 segundos, " +
     "8 % peor que el tiempo fijo y 48 % peor que max-pressure, y deja casi un cuarto de la demanda sin entrar. Con " +
     "las cinco semillas de E5 el resultado es el mismo. Su demora se multiplica por 10 respecto de la hora pico, " +
     "contra 6 de max-pressure. Ojo: aquí cada agente es una sola semilla, la mejor en validación, así que la tabla " +
