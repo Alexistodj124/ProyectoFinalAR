@@ -161,3 +161,31 @@ def test_gym_env_cruce():
     o, r, te, tr, _ = genv.step(genv.action_space.sample())
     assert isinstance(r, float) and genv.observation_space.contains(o)
     genv.close()
+
+
+def test_counts_consistent_and_calibrated():
+    """Counts (env/conteos) are consistent along the corridor and keep the calibrated ratios."""
+    from env.build_network import CORRIDOR
+    from env.demand import read_counts, route_rates
+
+    for prof in ("pico", "mediodia"):
+        c = read_counts(prof)
+        ids = [x["id"] for x in CORRIDOR]
+        for k, (a, b) in enumerate(zip(ids, ids[1:])):  # NB: what reaches b = what left a towards b
+            cross = next(v for (i, ap), v in c.items() if i == a and ap in ("este", "oeste"))
+            to_nb = cross["izquierda" if CORRIDOR[k]["cross_dir"] == "EB" else "derecha"]
+            assert abs(c[(a, "sur")]["recto"] + to_nb - sum(c[(b, "sur")].values())) <= 8  # 15-min rounding
+    tot = {p: sum(q for _, q in route_rates(get_scenario("reforma_pico").net_file, p)) for p in ("pico", "mediodia")}
+    assert 6500 < tot["pico"] < 8500  # calibrated peak (env/conteos/README.md)
+    assert 0.6 <= tot["mediodia"] / tot["pico"] <= 0.7
+    # cruce_* uses exactly the C12 counts of the corridor
+    c12 = read_counts("pico")
+    cruce = route_rates(get_scenario("cruce_pico").net_file, "pico")
+    assert abs(sum(q for _, q in cruce) - sum(sum(v.values()) for (i, _), v in c12.items() if i == "C12")) < 1e-6
+
+
+def test_routes_carry_calibrated_vtype():
+    from env.demand import VTYPE, routes_for
+
+    txt = Path(routes_for("cruce_pico", 0)).read_text()
+    assert f'tau="{VTYPE["tau"]}"' in txt and f'sigma="{VTYPE["sigma"]}"' in txt

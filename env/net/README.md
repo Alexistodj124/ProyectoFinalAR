@@ -67,7 +67,37 @@ La dimensión de la observación es `n_green + 1 + 2·carriles` (fase one-hot, b
 - El programa `0` de la red (el que usa sumo-rl para definir las fases del agente) tiene las mismas fases verdes, con duraciones por defecto.
 
 ## Validación (`python -m env.validate`)
-Con tiempo fijo, `reforma_pico` y semilla 0, el corredor completo se recorre en unos 160 s en cada sentido, sin teletransportes. La referencia de "Google Maps" en `env/validate.py` es un **PLACEHOLDER** (330 s NB y 300 s SB) hasta que se consulte el valor real a la hora de los conteos. Si la simulación queda muy por debajo, se calibra subiendo la demanda (conteos reales) o ajustando el `vType` en `env/demand.py`.
+`python -m env.validate [--program fixed|actuated] [--scenario ...] [--seeds ...]` corre el programa base y mide el tiempo de viaje de los vehículos que recorren **todo** el corredor (`NB_S_C15 → NB_C06_N` y `SB_N_C06 → SB_C15_S`). Lo compara con la referencia de "Google Maps" (`REFERENCE_S`: 330 s NB y 300 s SB, todavía un **PLACEHOLDER** hasta consultar el valor real a la hora de los conteos). También reporta la espera media, los insertados, el backlog de inserción, los teletransportes y la razón cola fin/mitad. Con tiempo fijo en `reforma_pico` imprime `CALIBRACION OK` cuando se cumple todo: ±15 % en los dos sentidos, teletransportes < 1 % y backlog < 2 %.
+
+**Calibración v2** (procedimiento y factores en `env/conteos/README.md`). Antes, con tiempo fijo, el corredor se recorría en ~160 s por sentido, sin teletransportes: el pico era demasiado liviano. Ahora, con tiempo fijo y las semillas 1000–1002:
+
+| | NB [s] | SB [s] | espera [s] | backlog | teletransp. | cola fin/mitad |
+|---|---|---|---|---|---|---|
+| referencia (placeholder) | 330 | 300 | | < 2 % | < 1 % | |
+| v1 (antes) | 161 | 162 | 33.0 | 0.0 % | 0 | |
+| **v2 fijo** | **342 (+3.5 %)** | **305 (+1.5 %)** | 77.7 | 0.05 % | 0 | 1.27 |
+| v2 actuado | 299 | 235 | 58.1 | 0.8 % | 0 | 1.20 |
+
+Con las 10 `EVAL_SEEDS`, el tiempo fijo da NB 335 s y SB 304 s.
+
+Las tres líneas base después de calibrar (`experiments.evaluate`, semillas 1000–1002, 3600 s; insertados en veh/h):
+
+| escenario | método | NB [s] | SB [s] | espera [s] | teletransp. | insertados | backlog |
+|---|---|---|---|---|---|---|---|
+| `reforma_pico` | fijo | 342 | 305 | 77.7 | 0 | 7328 | 0.1 % |
+| `reforma_pico` | actuado | 299 | 235 | 58.1 | 0 | 7273 | 0.8 % |
+| `reforma_pico` | max-pressure | 307 | 191 | 86.3 | 9.7 | 6545 | 10.7 % |
+| `reforma_mediodia` | fijo | 202 | 203 | 29.9 | 0 | 4745 | 0.1 % |
+| `reforma_mediodia` | actuado | 204 | 187 | 17.8 | 0 | 4745 | 0.1 % |
+| `reforma_mediodia` | max-pressure | 206 | 178 | 58.6 | 2.3 | 4694 | 1.1 % |
+| `reforma_pico_x13` | fijo | 457 | 383 | 118.8 | 0 | 8031 | 16.0 % |
+| `reforma_pico_x13` | actuado | 372 | 325 | 82.2 | 0 | 8037 | 16.0 % |
+| `reforma_pico_x13` | max-pressure | 350 | 211 | 106.3 | 30.3 | 7127 | 25.5 % |
+| `cruce_pico` | fijo | – | – | 29.2 | 0 | 4842 | 0.2 % |
+| `cruce_pico` | actuado | – | – | 29.0 | 0 | 4817 | 0.7 % |
+| `cruce_pico` | max-pressure | – | – | 27.7 | 0 | 4729 | 2.5 % |
+
+En el corredor, max-pressure deja sin verde a las transversales de una vía (15 calle y 10a calle, con esperas de 230–390 s). Sus colas salen de la red y por eso tiene backlog y teletransportes. Ya pasaba antes de calibrar en `pico_x13` (backlog 11.8 %, 21 teletransportes). Ojo: las métricas de `experiments.evaluate` solo cuentan los vehículos insertados, así que hay que mirar el backlog junto con la espera.
 
 ## Limitaciones conocidas
 - No se modelan los carriles auxiliares de Reforma ni las transversales sin semáforo (13, 11, 9a–7a calle), que en la realidad meten y sacan tráfico a media cuadra.

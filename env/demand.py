@@ -35,10 +35,21 @@ from env.scenarios import PROFILES, ROUTE_DIR, Scenario, get_scenario
 
 COUNTS_DIR = Path(__file__).resolve().parent / "conteos"
 CACHE_DIR = ROUTE_DIR / "cache"
-GENERATOR_VERSION = "1"
+GENERATOR_VERSION = "2"  # 2: calibrated vType (v1 had the SUMO defaults)
 MOVES = {"s": "recto", "l": "izquierda", "L": "izquierda", "r": "derecha", "R": "derecha"}
-VTYPE_XML = ('    <vType id="auto" vClass="passenger" accel="2.6" decel="4.5" sigma="0.5" length="4.5" '
-             'minGap="2.5" maxSpeed="16.67" speedFactor="normc(1,0.1,0.8,1.2)"/>\n')
+# Calibrated passenger vType (PLAN 6.2 "Validar", env/conteos/README.md). Krauss with
+# SUMO defaults (accel 2.6, decel 4.5, sigma 0.5, tau 1.0, speedFactor ~N(1, 0.1)) discharges
+# ~1900 veh/h per lane of green and cruises at the 50 km/h limit, much faster than Av. La
+# Reforma in the peak. Here: softer accelerations, a longer reaction time and more driver
+# imperfection (~1530 veh/h per lane of green incl. start-up lost time, measured on the C12
+# NB approach of cruce.net.xml with a saturated queue), and a desired speed of 0.8 x limit
+# (~40 km/h, sd 0.1) that stands in for the friction the network does not model (buses
+# stopping, auxiliary lanes, unsignalized side streets). The web DemandGenerator uses it too.
+VTYPE = dict(accel=2.2, decel=4.0, sigma=0.6, tau=1.2, length=4.5, minGap=2.5, maxSpeed=16.67,
+             speedFactor=0.8, speedDev=0.1)
+VTYPE_XML = ('    <vType id="auto" vClass="passenger" accel="{accel}" decel="{decel}" sigma="{sigma}" '
+             'tau="{tau}" length="{length}" minGap="{minGap}" maxSpeed="{maxSpeed}" '
+             'speedFactor="normc({speedFactor},{speedDev},0.6,1.1)"/>\n').format(**VTYPE)
 
 
 # ----------------------------------------------------------------------------- inputs
@@ -206,9 +217,18 @@ class DemandGenerator:
 
     def _ensure(self, conn, key):
         known = self._known.setdefault(key, set(conn.route.getIDList()))
-        if "auto" not in conn.vehicletype.getIDList():
-            conn.vehicletype.copy("DEFAULT_VEHTYPE", "auto")
-            conn.vehicletype.setImperfection("auto", 0.5)
+        if "auto" not in conn.vehicletype.getIDList():  # same calibrated vType as the route files
+            vt = conn.vehicletype
+            vt.copy("DEFAULT_VEHTYPE", "auto")
+            vt.setAccel("auto", VTYPE["accel"])
+            vt.setDecel("auto", VTYPE["decel"])
+            vt.setImperfection("auto", VTYPE["sigma"])
+            vt.setTau("auto", VTYPE["tau"])
+            vt.setLength("auto", VTYPE["length"])
+            vt.setMinGap("auto", VTYPE["minGap"])
+            vt.setMaxSpeed("auto", VTYPE["maxSpeed"])
+            vt.setSpeedFactor("auto", VTYPE["speedFactor"])
+            vt.setSpeedDeviation("auto", VTYPE["speedDev"])
         return known
 
     def _add(self, conn, known, vid, ri):
