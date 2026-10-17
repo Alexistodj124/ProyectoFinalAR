@@ -423,7 +423,7 @@ def test_reforma_demo_end_to_end():
 
         assert mgr.submit({"cmd": "incident", "edge": edge, "on": True}).result(5) == {"edge": edge, "on": True}
         for lanes in mgr.call(perms).values():
-            assert [("passenger" in d) for _, d in sorted(lanes.items())] == [True, True, True, False]
+            assert [("passenger" in d) for _, d in sorted(lanes.items())] == [True, True, False, False]  # 2 de 3 carriles rectos; queda 1 recto + la bahía
         assert json.loads(mgr.latest)["incidents"] == [edge] or mgr.call(lambda m: sorted(m.incidents)) == [edge]
         mgr.submit({"cmd": "speed", "value": 20}).result(5)
         mgr.submit({"cmd": "inject", "edge": edge, "n": 4}).result(5)  # ruta que ya no es transitable: se descarta

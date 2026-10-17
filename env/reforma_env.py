@@ -103,6 +103,10 @@ def make_parallel_env(
         add += ["--tripinfo-output", tripinfo_path, "--tripinfo-output.write-unfinished", "true"]
     if emissions:
         add += ["--device.emissions.probability", "1"]
+    if incident:
+        # a closed lane can leave some already-planned route without connection: drop that
+        # vehicle with a warning instead of aborting the whole simulation
+        add += ["--ignore-route-errors", "true"]
     if fixed_ts and program in ("fixed", "actuated"):
         f = sc.fixed_additional if program == "fixed" else sc.actuated_additional
         if f and Path(f).exists():

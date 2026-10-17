@@ -6,8 +6,10 @@
 
 Between `start` and `end` (simulation seconds) the lane(s) are closed to `passenger`
 with traci.lane.setDisallowed, and their original permissions are restored afterwards.
-With "edge" and no "lanes", every lane but the leftmost one is closed (an accident
-that leaves one lane open); a 1-lane edge is closed completely.
+With "edge" and no "lanes", every THROUGH lane but the leftmost one is closed (an accident
+that leaves one through lane open). Turn bays stay open, so every route stays valid (closing
+the through lanes and leaving only a left-turn bay would leave through traffic with no
+connection, and SUMO aborts on "no valid route"). A 1-lane edge is closed completely.
 The wrapper is transparent: reset/step/agents/spaces/close and any other attribute go
 to the wrapped parallel env.
 """
@@ -21,7 +23,12 @@ def incident_lanes(conn, incident: dict) -> list[str]:
     n = conn.edge.getLaneNumber(edge)
     idx = incident.get("lanes")
     if idx is None:
-        idx = range(max(1, n - 1))  # keep the leftmost lane open
+        # through lanes = lanes with a straight ('s') link at the end of the edge
+        through = [i for i in range(n) if any(lk[6] == "s" for lk in conn.lane.getLinks(f"{edge}_{i}"))]
+        if len(through) >= 2:
+            idx = through[:-1]  # keep the leftmost through lane (and any bay) open
+        else:
+            idx = range(max(1, n - 1))  # no straight movement: keep the leftmost lane open
     return [f"{edge}_{i}" for i in idx]
 
 
